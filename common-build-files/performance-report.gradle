@@ -1,0 +1,153 @@
+import groovy.json.JsonSlurper
+import com.mitra.performance.dao.*;
+import com.mitra.performance.graph.*;
+
+buildscript {
+  repositories {
+    mavenLocal()
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+
+  def gradleS3PluginVersion = '1.4.0'
+  def performanceTestSupportVersion = '0.0.7'
+  def mysqlVersion = '5.1.44'
+
+  dependencies {
+    classpath "gradle.plugin.com.github.mgk.gradle:s3:$gradleS3PluginVersion"
+    classpath "mysql:mysql-connector-java:$mysqlVersion"
+  }
+}
+
+apply plugin: com.github.mgk.gradle.S3Plugin
+
+import com.github.mgk.gradle.*
+
+def getProjectProperty(property ) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        println("Property $property must be specified")
+    }
+}
+
+task uploadFile0() {
+  outputs.upToDateWhen { false }
+}
+
+def name = getProjectProperty("projectName" )
+def path = "../$name-perf/build/jmeter-report"
+
+if (file(path).exists()) {
+  project.ext {
+    bucket = 'pipe-midw-'+System.getenv("VPC")+'-jenkins'
+    buildNumber = getProjectProperty("build-number")
+  }
+
+  checkForFailure()
+
+  def lastIndex = scanDirectory(name, path, file(path).getAbsolutePath(), 1)
+
+  task "uploadFile$lastIndex"(type: S3Upload) {
+    outputs.upToDateWhen { false }
+
+    bucket = project.ext.bucket
+    key = "$name/status.json"
+    file = "./$name-perf/build/jmeter-report/status.json"
+
+    doLast {
+      println "*** Upload of results finished"
+    }
+  }
+}
+
+def checkForFailure() {
+    def name = getProjectProperty("projectName" )
+    def path = "../$name-perf/build/jmeter-report"
+
+    def xmlFile = ~/.*\.xml/
+
+    File resultsDir = file(path);
+
+    def failure = false
+
+    resultsDir.eachFileMatch(xmlFile) { resultsFile ->
+
+      def testResults = new XmlParser().parse(resultsFile)
+      def failureList = testResults.httpSample*.assertionResult*.failure
+      failureList.each {
+        it.each {
+          if (it.text() == "true") {
+            failure = true;
+          }
+        }
+      }
+    }
+
+    def outputPath = "../$name-perf/build/jmeter-report/status.json"
+    def outputFile = file(outputPath)
+
+    if (failure == true) {
+      outputFile.write("{ \"failure\" : true }")
+    } else {
+      outputFile.write("{ \"failure\" : false }")
+    }
+}
+
+def scanDirectory(name, path, root, index) {
+
+  println("Search path... " + path)
+
+  def files = files { file("$path").listFiles() }
+
+  files.each {
+
+    def itString = it.toString()
+    def targetPath = itString.replace(root,"")
+
+    if (it.isDirectory()) {
+      index = scanDirectory(name, itString, root, index)
+    } else {
+
+      def nextIndex = index + 1
+
+      task "uploadFile$index"(type: S3Upload) {
+        outputs.upToDateWhen { false }
+
+        bucket = project.ext.bucket
+        key = "$name/${project.ext.buildNumber}$targetPath"
+        file = "$itString"
+
+        finalizedBy "uploadFile$nextIndex"
+      }
+
+      index++
+    }
+  }
+
+  return index
+}
+
+def connectToPerformanceDatabase() {
+    def performanceDbUrl = System.getProperty('performance-db-url', 'mysql://localhost')
+    def performanceDbSchema = System.getProperty('performance-db-schema', 'hours')
+    def performanceDbUser = System.getProperty('performance-db-user', 'root')
+    def performanceDbPassword = System.getProperty('performance-db-password', 'root')
+    def sqlDatabaseConnection = new SqlDatabaseConnection(performanceDbUrl , performanceDbSchema, performanceDbUser, performanceDbPassword)
+
+    return sqlDatabaseConnection
+}
+
+task generatePredictionGraph() {
+    doFirst {
+        def sqlDatabaseConnection = connectToPerformanceDatabase()
+        def hours = new Hours(sqlDatabaseConnection)
+
+        def predictions = hours.extractPredictedThroughput()
+        sqlDatabaseConnection.close()
+
+        def renderer = new RenderPredictedThroughput()
+        renderer.render(predictions)
+    }
+}

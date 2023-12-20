@@ -1,0 +1,4 @@
+flyway.url      = 'jdbc:' + System.getenv('RDS_MYSQL_PPD')
+flyway.user     = System.getenv('RDS_MYSQL_PPD_JENKINS_USER')
+flyway.password = System.getenv('RDS_MYSQL_PPD_JENKINS_PASSWORD')
+

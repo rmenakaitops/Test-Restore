@@ -1,0 +1,36 @@
+project.ext {
+
+    mockUsername = "root"
+    mockPassword = "root"
+    mockUrl = "jdbc:mysql://wso2-mysql:3306/uv"
+
+    uvOffBHost = "172.31.42.120"
+    uvPosAHost = "172.31.42.120"
+    uvPosBHost = "172.31.42.120"
+    uvWebBHost = "172.31.42.120"
+    uvCommonAccount = "BUS-SYS"
+    uvWarehouseAccount = "WMSJDASIT"
+    uvCommonUsername = "jbadmin"
+    uvCommonPassword = "jbadmin"
+
+    uvWarehouseUsername = "jbadmin"
+    uvWarehousePassword = "jbadmin"
+
+    uvCommonMinConnections = "0"
+    uvCommonMaxConnections = "1"
+    uvWarehouseMinConnections = "0"
+    uvWarehouseMaxConnections = "1"
+
+    uvCommonOffBMinConnections = "0"
+    uvCommonOffBMaxConnections = "1"
+    uvCommonPosAMinConnections = "0"
+    uvCommonPosAMaxConnections = "1"
+    uvCommonPosBMinConnections = "0"
+    uvCommonPosBMaxConnections = "1"
+    uvCommonWebBMinConnections = "0"
+    uvCommonWebBMaxConnections = "1"
+
+    uvWarehousePosAMinConnections = "0"
+    uvWarehousePosAMaxConnections = "1"
+
+}

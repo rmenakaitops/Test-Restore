@@ -1,0 +1,47 @@
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+
+}
+
+apply from: 'common-build-files/removeTopicDurableSubscriptors.gradle'
+
+task removeCarbonApp() {
+    doLast {
+        def environment = getProjectProperty('deploy-environment', 'local')
+
+        println "Removing carbon applications for ${rootProject.name}"
+  
+        def esbUrl = new URL(project.ext.esbServer)
+
+        println "Deleting ${rootProject.name}-${project.ext.deployVersion} carbon application from ESB"
+        esbAdminStub.deleteApplication(rootProject.name, project.ext.deployVersion);
+        println "${rootProject.name}-${project.ext.deployVersion} deleted from ESB"
+
+        println "Deleting ${rootProject.name}-config-${environment}-${project.ext.deployVersion} carbon application from ESB"
+        esbAdminStub.deleteApplication(rootProject.name + "-config-" + environment, project.ext.deployVersion);
+        println "${rootProject.name}-config-${environment}-${project.ext.deployVersion} deleted from ESB"
+ 
+        def dssUrl = new URL(project.ext.dssServer)
+        
+
+        println "Deleting ${rootProject.name}-${project.ext.deployVersion} carbon application from DSS"
+        dssAdminStub.deleteApplication(rootProject.name, project.ext.deployVersion);
+        println "${rootProject.name}-${project.ext.deployVersion} deleted from DSS"
+    }
+}
+
+removeCarbonApp.finalizedBy removeTopicDurableSubscriptors
+
+def getProjectProperty(property, defaultValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultValue
+    }
+}

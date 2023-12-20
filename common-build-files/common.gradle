@@ -1,0 +1,209 @@
+import static groovy.json.JsonOutput.*
+def getProjectProperty(property) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return ''
+    }
+}
+
+def getProjectProperty(property, defaultProperty) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultProperty
+    }
+}
+
+def extractExtraArgument(arguments, argumentName, defaultValue) {
+  def matching = arguments.findAll{it.size() > 2}
+    .collect{it.substring(2).split("=")}
+    .findAll{it.size() == 2}
+    .findAll{argumentName.equals(it[0])}
+    .collect { it[1] }
+  return matching.size() > 0 ? matching[0] : defaultValue;
+}
+
+def getMbTcpServer(url) {
+    def port = "8672"
+    if (getProjectProperty("deploy-environment", "local") == 'local') {
+      port = "5676"
+    }
+    return "tcp://" + url + ":" + port
+}
+
+def getMbHttpServer(url) {
+    def port = "9443"
+    if (getProjectProperty("deploy-environment", "local") == 'local') {
+      port = "9447"
+    }
+    return "https://" + url + ":" + port
+}
+
+allprojects {
+    tasks.withType(Exec) {
+        doFirst {
+            println "*******************************************" + commandLine
+        }
+    }
+
+    ext {
+        artifactoryUrl = getProjectProperty('artifactory-url')
+        artifactoryRepoKey = getProjectProperty('artifactory-repo-key')
+        artifactoryUsername = getProjectProperty('artifactory-username')
+        artifactoryPassword = getProjectProperty('artifactory-password')
+        targetRepository = getProjectProperty('target-repository')
+        releaseRepository = getProjectProperty('release-repository')
+        sourceRepository = getProjectProperty('source-repository')
+        buildNumber = getProjectProperty('build-number')
+        pipelineStage = getProjectProperty('pipeline-stage')
+        deployEnvironment=getProjectProperty('deploy-environment')
+        sharedResource=getProjectProperty('shared-resource').toBoolean()
+
+        extraArguments = new ArrayList(Arrays.asList(getProjectProperty('extra-args').split('\\s+')))
+
+        amServer = extractExtraArgument(extraArguments, "server-am-url", 'https://localhost:9446')
+        amHttpServer = extractExtraArgument(extraArguments, "server-am-http-in-url", 'https://am-1.9.1:8246')
+        amWorkerServers = extractExtraArgument(extraArguments, "server-worker-am-urls", 'https://localhost:9446')
+        amMgrServer = extractExtraArgument(extraArguments, "server-am-gwm-url", 'https://localhost:9446')
+        amUsername = extractExtraArgument(extraArguments, "server-am-username", 'admin')
+        amPassword = extractExtraArgument(extraArguments, "server-am-password", 'admin')
+        esbServer = extractExtraArgument(extraArguments, "server-esb-url", 'https://localhost:9444')
+        esbWorkerServers = extractExtraArgument(extraArguments, "server-worker-esb-urls", 'https://localhost:9444')
+        esbHttpServer = extractExtraArgument(extraArguments, "server-esb-http-in-url", 'https://esb-4.9.0:8244')
+        esbHttpServerDirect = extractExtraArgument(extraArguments, "server-esb-http-in-direct-url", 'https://esb-4.9.0:8244')
+        esbUsername = extractExtraArgument(extraArguments, "server-esb-username", 'admin')
+        esbPassword = extractExtraArgument(extraArguments, "server-esb-password", 'admin')
+        dssServer = extractExtraArgument(extraArguments, "server-dss-url", 'https://localhost:9448')
+        dssWorkerServers = extractExtraArgument(extraArguments, "server-worker-dss-urls", 'https://localhost:9448')
+        dssHttpServer = extractExtraArgument(extraArguments, "server-dss-http-in-url", 'https://dss-3.5.1:9448')
+        dssUsername = extractExtraArgument(extraArguments, "server-dss-username", 'admin')
+        dssPassword = extractExtraArgument(extraArguments, "server-dss-password", 'admin')
+        gregServer = extractExtraArgument(extraArguments, "server-greg-url", 'https://localhost:9449')
+        gregUsername = extractExtraArgument(extraArguments, "server-greg-username", 'admin')
+        gregPassword = extractExtraArgument(extraArguments, "server-greg-password", 'admin')
+        apiGetTokenServer = extractExtraArgument(extraArguments, "server-get-token", 'http://localhost:9766/store/site/blocks')
+        dasHttpServer = extractExtraArgument(extraArguments, "server-das-http-url", 'https://localhost:9445')
+        dasWorkerServers = extractExtraArgument(extraArguments, "server-worker-das-urls", 'https://localhost:9445')
+        dasUsername = extractExtraArgument(extraArguments, "server-das-username", 'admin')
+        dasPassword = extractExtraArgument(extraArguments, "server-das-password", 'admin')
+
+        mbBroker         = extractExtraArgument(extraArguments, "server-mb-1-broker", 'localhost')
+
+        mbDefault1Broker = extractExtraArgument(extraArguments, "server-mb-1-broker", "localhost")
+        mbDefault2Broker = extractExtraArgument(extraArguments, "server-mb-2-broker", "localhost")
+        mbRta1Broker     = extractExtraArgument(extraArguments, "server-mb-rta-1-broker", "localhost")
+        mbRta2Broker     = extractExtraArgument(extraArguments, "server-mb-rta-2-broker", "localhost")
+        mbRtb1Broker     = extractExtraArgument(extraArguments, "server-mb-rtb-1-broker", "localhost")
+        mbRtb2Broker     = extractExtraArgument(extraArguments, "server-mb-rtb-2-broker", "localhost")
+        mbBat1Broker     = extractExtraArgument(extraArguments, "server-mb-bat-1-broker", "localhost")
+        mbBat2Broker     = extractExtraArgument(extraArguments, "server-mb-bat-2-broker", "localhost")
+
+        mbUsername = extractExtraArgument(extraArguments, "server-mb-username", 'admin')
+        mbPassword = extractExtraArgument(extraArguments, "server-mb-password", 'admin')
+
+        mbTcpServer = getMbTcpServer(project.ext.mbBroker)
+        mbHttpServer = getMbHttpServer(project.ext.mbBroker)
+
+        releaseVersion = rootProject.version.replace('-SNAPSHOT','')
+        snapshotVersion = releaseVersion + '-SNAPSHOT'
+
+        if (project.hasProperty("release")) {
+            deployVersion = releaseVersion
+        } else {
+            deployVersion = snapshotVersion
+        }
+
+        deployMajorVersion = releaseVersion.tokenize('.')[0]
+
+        pipelineEnvironment = System.getenv("PIPELINE_ENVIRONMENT")
+
+        if (pipelineEnvironment == null) {
+          pipelineEnvironment = ""
+        }
+
+        getMbTcpServer  = this.&getMbTcpServer
+        getMbHttpServer = this.&getMbHttpServer
+    }
+
+    repositories {
+        maven { url project.ext.artifactoryUrl + "/middleware-ci/" }
+        maven { url project.ext.artifactoryUrl + "/middleware-snapshots" }
+        maven { url project.ext.artifactoryUrl + "/middleware-releases" }
+        maven { url "http://dist.wso2.org/maven2/" }
+        maven { url "http://repo.maven.apache.org/maven2/" }
+    }
+}
+
+task deploySolution() {
+    doLast {}
+}
+
+task getProjectVersion() {
+    doLast {
+        def file = new File("$projectDir/CURRENT_VERSION")
+        file.text = "CURRENT_VERSION="+releaseVersion
+        file.createNewFile()
+    }
+}
+
+def commonMessageBrokerConfig() {
+    def host = getMbTcpServer(project.ext.mbBroker)
+
+    if (getProjectProperty("deploy-environment", "local") == 'local') {
+        return host
+    } else {
+        def trustStore = '../wso2carbon.jks'
+        def trustStorePassword = extractExtraArgument(extraArguments,'wso2carbon-password','wso2carbon')
+        def trustStoreDetail = "trust_store='" + trustStore + "'&trust_store_password='" + trustStorePassword
+
+        def keyStore = '../wso2carbon.jks'
+        def keyStorePassword = extractExtraArgument(extraArguments,'wso2carbon-password','wso2carbon')
+        def keyStoreDetail = "key_store='" + keyStore + "'&key_store_password='" + keyStorePassword
+
+        def sslConfig = "?ssl='true'&" + trustStoreDetail + "'&" + keyStoreDetail + "'"
+
+        return host + sslConfig;
+    }
+}
+
+def getSystemProperty(property) {
+    if (System.getProperty(property) != null) {
+        return System.properties[property]
+    } else {
+        return ""
+    }
+}
+
+task writeAllCucumberEnvironmentProperties() {
+    doLast {
+        def mbUsername = extractExtraArgument(extraArguments, "server-mb-username", "admin")
+        def mbPassword = extractExtraArgument(extraArguments, "server-mb-password", "admin")
+
+        project.ext{
+            apiManagerHttpServer = "${amHttpServer}"
+            mbServer = commonMessageBrokerConfig()
+            mbHttpServer = getMbHttpServer(project.ext.mbBroker)
+        }
+        project.ext.'wso2carbon-password' = getSystemProperty('wso2carbon-password')
+
+        Properties props = new Properties()
+        props.putAll(
+            project.ext.extraArguments
+            .findAll{it.size() > 2}
+            .collect{it.substring(2).split("=")}
+            .findAll{it.size() == 2}
+            .collectEntries { [(it[0]):it[1]] }
+        )
+
+        props.putAll(project.ext.properties.collectEntries{ [(it.key): it.value.toString()]})
+
+        File propsFile = file('src/cucumber/resources/cucumber.properties')
+
+        logger.info("----------- src/cucumber/resources/cucumber.properties list ------------------- ")
+        logger.info(prettyPrint(toJson(props.sort{it.key})))
+        logger.info("--------------------------------------------------------------------------- ")
+
+        props.store(propsFile.newWriter(), null)
+    }
+}

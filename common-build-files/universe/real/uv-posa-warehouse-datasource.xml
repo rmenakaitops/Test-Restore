@@ -1,0 +1,41 @@
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:xsd="http://org.apache.axis2/xsd"
+    xmlns:nds="http://services.core.ndatasource.carbon.wso2.org/xsd"
+    xmlns:ndsc="http://core.ndatasource.carbon.wso2.org/xsd">
+
+    <soapenv:Header/>
+    <soapenv:Body>
+        <xsd:addDataSource>
+            <xsd:dsmInfo>
+                <nds:definition>
+                    <nds:dsXMLConfiguration>
+                        <![CDATA[
+                            <configuration>
+                                <customDataSourceClass>com.mitra.middleware.dss.connector.universe.UniverseConnector</customDataSourceClass>
+                                <customDataSourceProps>
+                                    <property name="universe.username">@uvWarehouseUsername@</property>
+                                    <property name="universe.password">@uvWarehousePassword@</property>
+                                    <property name="universe.hostname">@uvPosAHost@</property>
+                                    <property name="universe.accountpath">@uvWarehouseAccount@</property>
+                                    <property name="universe.pool.threshold.idle">10000</property>
+                                    <property name="universe.pool.threshold.exec">10000</property>
+                                    <property name="universe.pool.connections.min">@uvWarehousePosAMinConnections@</property>
+                                    <property name="universe.pool.connections.max">@uvWarehousePosAMaxConnections@</property>
+                                </customDataSourceProps>
+                            </configuration>
+                        ]]>
+                    </nds:dsXMLConfiguration>
+                    <nds:type>DS_CUSTOM_QUERY</nds:type>
+                </nds:definition>
+                <nds:description>universe-posa-warehouse</nds:description>
+                <nds:name>universe-posa-warehouse</nds:name>
+                <nds:system>false</nds:system>
+                <nds:jndiConfig>
+                    <ndsc:name>jdbc/universe-posa-warehouse</ndsc:name>
+                </nds:jndiConfig>
+            </xsd:dsmInfo>
+        </xsd:addDataSource>
+    </soapenv:Body>
+
+</soapenv:Envelope>

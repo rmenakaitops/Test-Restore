@@ -1,0 +1,9 @@
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+task buildCar(type: Exec, dependsOn: [@dependencies@]) {
+    commandLine 'mvn', 'clean', 'test', 'package', "-s$projectDir/../settings.xml"
+}

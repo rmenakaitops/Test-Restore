@@ -1,0 +1,17 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+apply from: "$rootDir/reliable-delivery/gradle/common-methods.gradle"
+
+task createInboundEndpointFile() {
+    outputs.upToDateWhen { false }
+    copyFile("subscribe-inbound-endpoint", "inbound-endpoint")
+}
+
+task createInboundEndpointArtifact() {
+    addFileToArtifact("subscribe-inbound-endpoint", "inbound-endpoint")
+}
+
+task createInboundEndpointPom() {
+    addDependancyToPom("subscribe-inbound-endpoint", "inbound-endpoint")
+}

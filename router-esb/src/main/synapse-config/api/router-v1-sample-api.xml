@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/router/v1" name="router-v1-sample-api" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" protocol="https" uri-template="/usecase">
+        <inSequence>
+            <call-template description="Call: metadata-creator" target="metadata-creator-v2-template">
+                <with-param name="messageType" value="INFO"/>
+                <with-param name="messageVersion" value="1.0.0"/>
+                <with-param name="capability" value="Product Management"/>
+                <with-param name="systemCode" value="CORE"/>
+                <with-param name="priority" value="MEDIUM"/>
+            </call-template>
+            <call-template description="Call : router-v1-template" target="router-v1-template">
+                <with-param name="routerRuleDefinitionPath" value="{$trp:Router-Deff-Path}"/>
+                <with-param name="routerOnErrorSequence" value="{$trp:On-Error-Sequence}"/>
+                <with-param name="routerIntergationVersion" value="1.0.0"/>
+                <with-param name="routerIntegrationReference" value="PIM1"/>
+            </call-template>
+            <sequence key="router-v1-sample-api-response-sequence"/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+    <resource methods="POST" protocol="https" uri-template="/usecase/external-endpoint">
+        <inSequence>
+            <call-template description="Call: metadata-creator" target="metadata-creator-v2-template">
+                <with-param name="messageType" value="INFO"/>
+                <with-param name="messageVersion" value="1.0.0"/>
+                <with-param name="capability" value="Product Management"/>
+                <with-param name="systemCode" value="CORE"/>
+                <with-param name="priority" value="MEDIUM"/>
+            </call-template>
+            <call-template description="Call : router-v1-template" target="router-v1-template">
+                <with-param name="routerRuleDefinitionPath" value="{$trp:Router-Deff-Path}"/>
+                <with-param name="routerOnErrorSequence" value="{$trp:On-Error-Sequence}"/>
+                <with-param name="routerIntergationVersion" value="1.0.0"/>
+                <with-param name="routerIntegrationReference" value="PIM1"/>
+            </call-template>
+        </inSequence>
+        <outSequence>
+            <send/>
+        </outSequence>
+        <faultSequence/>
+    </resource>
+    <resource methods="POST" protocol="https" uri-template="/usecase/performance-test">
+        <inSequence>
+            <call-template description="Call: metadata-creator" target="metadata-creator-v2-template">
+                <with-param name="messageType" value="INFO"/>
+                <with-param name="messageVersion" value="1.0.0"/>
+                <with-param name="capability" value="Product Management"/>
+                <with-param name="systemCode" value="CORE"/>
+                <with-param name="priority" value="MEDIUM"/>
+            </call-template>
+            <call-template description="Call : router-v1-template" target="router-v1-sample-perf-template">
+                <with-param name="routerRuleDefinitionPath" value="{$trp:Router-Deff-Path}"/>
+                <with-param name="routerOnErrorSequence" value="{$trp:On-Error-Sequence}"/>
+                <with-param name="routerIntergationVersion" value="1.0.0"/>
+                <with-param name="routerIntegrationReference" value="PIM1"/>
+            </call-template>
+            <sequence key="router-v1-sample-api-response-sequence"/>
+        </inSequence>
+        <outSequence/>
+        <faultSequence/>
+    </resource>
+</api>

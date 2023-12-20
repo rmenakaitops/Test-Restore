@@ -1,0 +1,307 @@
+project.ext {
+    dockerMysqlContainerIP = ""
+    dockerDSSContainerIP = ""
+    dockerESBContainerIP = ""
+    dockerMBContainerIP = ""
+    dockerAPIContainerIP = ""
+    dockerStatus = ""
+
+    artifactoryRoot                 = ""
+    mysqlContainerName              = "wso2-mysql"
+    esbContainerName                = "esb-4.9.0"
+    dataServicesContainerName       = "dss-3.5.1"
+    apiManagerContainerName         = "am-1.9.1"
+    governanceRegistryContainerName = "greg-5.0.0"
+    dataAnalyticsContainerName      = "das-3.0.0"
+    messageBrokerContainerName      = "mb-3.2.0"
+    dockerHome                      = "/home/docker"
+}
+
+task pullDataAnalytics(type: Exec) {
+    group = "docker"
+    description = "Pull data analytics container"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${dataAnalyticsContainerName}"
+}
+
+task pullESB(type: Exec) {
+    group = "docker"
+    description = "Pull ESB"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${esbContainerName}"
+}
+
+task pullDataServices(type: Exec) {
+    group = "docker"
+    description = "Pull data services"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${dataServicesContainerName}"
+}
+
+task pullApiManager(type: Exec) {
+    group = "docker"
+    description = "Pull api manager"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${apiManagerContainerName}"
+}
+
+task pullGovernanceRegistry(type: Exec) {
+    group = "docker"
+    description = "Pull governence registry"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${governanceRegistryContainerName}"
+}
+
+task pullMessageBroker(type: Exec) {
+    group = "docker"
+    description = "Pull message broker"
+
+    commandLine "docker", "pull", "${artifactoryRoot}${messageBrokerContainerName}"
+}
+
+task pullDockerImages(dependsOn: [pullDataAnalytics, pullESB, pullDataServices, pullApiManager, pullGovernanceRegistry, pullMessageBroker]) {
+    doLast {}
+}
+
+task deleteDatabase(type: Exec) {
+    group = "docker"
+    description = "Delete database container"
+
+    commandLine "docker", "rm", "${mysqlContainerName}"
+}
+
+task deleteDataAnalytics(type: Exec) {
+    group = "docker"
+    description = "Delete data analytics container"
+
+    commandLine "docker", "rm", "${dataAnalyticsContainerName}"
+}
+
+task deleteESB(type: Exec) {
+    group = "docker"
+    description = "Delete esb container"
+
+    commandLine "docker", "rm", "${esbContainerName}"
+}
+
+task deleteDataServices(type: Exec) {
+    group = "docker"
+    description = "Delete data services container"
+
+    commandLine "docker", "rm", "${dataServicesContainerName}"
+}
+
+task deleteApiManager(type: Exec) {
+    group = "docker"
+    description = "Delete api manager container"
+
+    commandLine "docker", "rm", "${apiManagerContainerName}"
+}
+
+task deleteGovernanceRegistry(type: Exec) {
+    group = "docker"
+    description = "Delete governance registry container"
+
+    commandLine "docker", "rm", "${governanceRegistryContainerName}"
+}
+
+task deleteMessageBroker(type: Exec) {
+    group = "docker"
+    description = "Delete message broker container"
+
+    commandLine "docker", "rm", "${messageBrokerContainerName}"
+}
+
+task stopDatabase(type: Exec) {
+    group = "docker"
+    description = "Stop database container"
+
+    commandLine "docker", "stop", "${mysqlContainerName}"
+}
+
+task stopDataAnalytics(type: Exec) {
+    group = "docker"
+    description = "Stop data analytics container"
+
+    commandLine "docker", "stop", "${dataAnalyticsContainerName}"
+}
+
+task stopESB(type: Exec) {
+    group = "docker"
+    description = "Stop esb container"
+
+    commandLine "docker", "stop", "${esbContainerName}"
+}
+
+task stopDataServices(type: Exec) {
+    group = "docker"
+    description = "Stop data services container"
+
+    commandLine "docker", "stop", "${dataServicesContainerName}"
+}
+
+task stopApiManager(type: Exec) {
+    group = "docker"
+    description = "Stop api manager container"
+
+    commandLine "docker", "stop", "${apiManagerContainerName}"
+}
+
+task stopGovernanceRegistry(type: Exec) {
+    group = "docker"
+    description = "Stop governance registry container"
+
+    commandLine "docker", "stop", "${governanceRegistryContainerName}"
+}
+
+task stopMessageBroker(type: Exec) {
+    group = "docker"
+    description = "Stop message broker container"
+
+    commandLine "docker", "stop", "${messageBrokerContainerName}"
+}
+
+task startDatabase(type: Exec) {
+    group = "docker"
+    description = "Start database container"
+
+    commandLine "docker", "run", "--name", "${mysqlContainerName}", '--net', 'wso2_nw', "-v", "/home/mysql/data:/var/lib/mysql", "-e", "MYSQL_ROOT_PASSWORD=root", "-d", "mysql:5.6"
+}
+
+task startDataAnalytics(type: Exec) {
+    group = "docker"
+    description = "Start data analytics container"
+
+    commandLine "docker", "run", "-d", "--name", "${dataAnalyticsContainerName}", "-p", "9445:9445", "-p", "9765:9765", "-p", "7713:7713", "-p", "8245:8245", "-p", "8282:8282", "-p", "9162:9162", "--net", "wso2_nw", "-v", "${dockerHome}/${dataAnalyticsContainerName}/data:/opt/wso2${dataAnalyticsContainerName}/repository", "${artifactoryRoot}${dataAnalyticsContainerName}"
+}
+
+task startESB(type: Exec) {
+    group = "docker"
+    description = "Start esb container"
+
+    commandLine "docker", "run", "-d", "--name", "${esbContainerName}", "-p", "9444:9444", "-p", "9764:9764", "-p", "8244:8244", "-p", "8281:8281",  '--net', 'wso2_nw', '-v', "${dockerHome}/${esbContainerName}/data:/opt/wso2${esbContainerName}/repository", "${artifactoryRoot}${esbContainerName}"
+}
+
+task startDataServices(type: Exec) {
+    group = "docker"
+    description = "Start data services container"
+
+    commandLine "docker", "run", "-d", "--name", "${dataServicesContainerName}", "-p", "9448:9448", "-p", "9768:9768", '--net', 'wso2_nw', '-v', "${dockerHome}/${dataServicesContainerName}/data:/opt/wso2${dataServicesContainerName}/repository", "${artifactoryRoot}${dataServicesContainerName}"
+}
+
+task startApiManager(type: Exec) {
+    group = "docker"
+    description = "Start api manager container"
+
+    commandLine "docker", "run", "-d", "--name", "${apiManagerContainerName}", "-p", "9446:9446", "-p", "9766:9766", "-p", "10400:10400", "-p", "8283:8283", "-p", "8246:8246", "-p", "7711:7711", '--net', 'wso2_nw', '-v', "${dockerHome}/${apiManagerContainerName}/data:/opt/wso2${apiManagerContainerName}/repository", "${artifactoryRoot}${apiManagerContainerName}"
+}
+
+task startGovernanceRegistry(type: Exec) {
+    group = "docker"
+    description = "Start governance registry container"
+
+    commandLine "docker", "run", "-d", "--name", "${governanceRegistryContainerName}", "-p", "9449:9449", "-p", "9769:9769", '--net', 'wso2_nw', '-v', "${dockerHome}/${governanceRegistryContainerName}/data:/opt/wso2${governanceRegistryContainerName}/repository", "${artifactoryRoot}${governanceRegistryContainerName}"
+}
+
+task startMessageBroker(type: Exec) {
+    group = "docker"
+    description = "Start message broker container"
+
+    commandLine "docker", "run", "-d", "--name", "${messageBrokerContainerName}", "-p", "9447:9447", "-p", "9767:9767", "-p", "8837:8837", "-p", "8676:8676", "-p", "7615:7615", "-p", "5676:5676", "-p", "1887:1887", '--net', 'wso2_nw', '-v', "${dockerHome}/${messageBrokerContainerName}/data:/opt/wso2${messageBrokerContainerName}/repository", "${artifactoryRoot}${messageBrokerContainerName}"
+}
+
+stopDatabase.mustRunAfter stopESB
+stopDatabase.mustRunAfter stopApiManager
+stopDatabase.mustRunAfter stopDataServices
+stopDatabase.mustRunAfter stopGovernanceRegistry
+stopDatabase.mustRunAfter stopDataAnalytics
+stopDatabase.mustRunAfter stopMessageBroker
+
+deleteApiManager.mustRunAfter stopDatabase
+deleteESB.mustRunAfter stopDatabase
+deleteDataServices.mustRunAfter stopDatabase
+deleteGovernanceRegistry.mustRunAfter stopDatabase
+deleteDataAnalytics.mustRunAfter stopDatabase
+deleteDatabase.mustRunAfter stopDatabase
+deleteMessageBroker.mustRunAfter stopDatabase
+
+startApiManager.mustRunAfter startESB
+startESB.mustRunAfter startMessageBroker
+startESB.mustRunAfter startDataServices
+startDataServices.mustRunAfter startDatabase
+startDataAnalytics.mustRunAfter startDatabase
+startMessageBroker.mustRunAfter startDatabase
+
+task databaseContainerIpAddress(type: Exec) {
+
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "inspect", "--format", '"{{ .NetworkSettings.Networks.wso2_nw.IPAddress }}"', "${mysqlContainerName}"
+
+    doLast { dockerMysqlContainerIP = standardOutput.toString().trim().replace('"', '')
+             println "IP address of database is: " + dockerMysqlContainerIP
+    }
+
+}
+def logFileConfig = '../common-build-files/conf/logger/log-' + (project.hasProperty("deploy-environment") ? project.getProperty("deploy-environment") : "local") + '.gradle'
+if (file(logFileConfig).exists()){
+  apply from: logFileConfig
+}
+
+task dssContainerIpAddress(type: Exec) {
+
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "inspect", "--format", '"{{ .NetworkSettings.Networks.wso2_nw.IPAddress }}"', "${dataServicesContainerName}"
+
+    doLast { dockerDSSContainerIP = standardOutput.toString().trim().replace('"', '')
+             println "IP address of DSS server is: " + dockerDSSContainerIP
+    }
+
+}
+
+task esbContainerIpAddress(type: Exec) {
+
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "inspect", "--format", '"{{ .NetworkSettings.Networks.wso2_nw.IPAddress }}"', "${esbContainerName}"
+
+    doLast { dockerESBContainerIP = standardOutput.toString().trim().replace('"', '')
+             println "IP address of ESB server is: " + dockerESBContainerIP
+    }
+
+}
+
+task mbContainerIpAddress(type: Exec) {
+
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "inspect", "--format", '"{{ .NetworkSettings.Networks.wso2_nw.IPAddress }}"', "${messageBrokerContainerName}"
+
+    doLast { dockerMBContainerIP = standardOutput.toString().trim().replace('"', '')
+             println "IP address of MB server is: " + dockerMBContainerIP
+    }
+
+}
+
+task apiContainerIpAddress(type: Exec) {
+
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "inspect", "--format", '"{{ .NetworkSettings.Networks.wso2_nw.IPAddress }}"', "${apiManagerContainerName}"
+
+    doLast { dockerAPIContainerIP = standardOutput.toString().trim().replace('"', '')
+             println "IP address of API server is: " + dockerAPIContainerIP
+    }
+
+}
+
+task getDockerStatus(type: Exec) {
+    standardOutput = new ByteArrayOutputStream()
+
+    commandLine "docker", "ps", "-a"
+
+    doLast { dockerStatus = standardOutput.toString().trim()
+             println "Docker status: " + dockerStatus
+    }
+}

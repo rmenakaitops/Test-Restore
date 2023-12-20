@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="router-v1-sample-ep-channel1-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <property name="REST_URL_POSTFIX" scope="axis2" type="STRING" value="/target-1"/>
+    <send>
+        <endpoint key="gov:endpoints/router-v1-rest-sample-api-endpoint.xml"/>
+    </send>
+</sequence>

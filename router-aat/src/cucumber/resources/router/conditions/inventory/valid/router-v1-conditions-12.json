@@ -1,0 +1,31 @@
+[
+   {
+      "condition":"1000.0",
+      "sequences":[
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence",
+         "router-v1-sample-channel3-sequence"
+      ]
+   },
+   {
+      "condition": "2000.0",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    },
+   {
+      "condition": "3000.0",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    },
+   {
+      "condition": "4000.0",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    }
+]

@@ -1,0 +1,20 @@
+[
+   {
+      "condition":"PONUM",
+      "sequences":[
+         "router-v1-sample-ep-channel1-sequence"
+      ]
+   },
+   {
+      "condition": "TRANID",
+      "sequences": [
+         "router-v1-sample-ep-channel2-sequence" 
+      ]
+    },
+   {
+      "condition": "LOTNUM",
+      "sequences": [
+         "router-v1-sample-ep-channel1-sequence"	 
+      ]
+    }
+]

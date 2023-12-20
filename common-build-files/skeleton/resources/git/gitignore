@@ -1,0 +1,14 @@
+**/*datasource-*.xml
+**/.meta
+**/bin
+**/build
+**/target
+**/test-output
+**/cookies
+**/.settings
+**/.classpath
+**/.gradle
+**/src/cucumber/resources/cucumber.properties
+**/.sonar
+**/*.versionsBackup
+

@@ -1,0 +1,20 @@
+<plugin>
+  <groupId>org.wso2.maven</groupId>
+  <artifactId></artifactId>
+  <version>1.0.0</version>
+  <extensions>true</extensions>
+  <executions>
+    <execution>
+      <id></id>
+      <phase>process-resources</phase>
+      <goals>
+        <goal>pom-gen</goal>
+      </goals>
+      <configuration>
+        <artifactLocation>.</artifactLocation>
+        <typeList>${artifact.types}</typeList>
+      </configuration>
+    </execution>
+  </executions>
+  <configuration/>
+</plugin>

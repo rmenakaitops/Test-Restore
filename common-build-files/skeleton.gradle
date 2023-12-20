@@ -1,0 +1,43 @@
+project.ext.environments = [ 'local', 'aat', 'sit', 'uat', 'perf', 'ppd', 'prod']
+
+apply from: "skeleton/gradle/inputs.gradle"
+apply from: "skeleton/gradle/maven.gradle"
+apply from: "skeleton/gradle/database.gradle"
+apply from: "skeleton/gradle/api.gradle"
+apply from: "skeleton/gradle/gradle.gradle"
+apply from: "skeleton/gradle/tests.gradle"
+apply from: "skeleton/gradle/misc.gradle"
+apply from: "skeleton/gradle/stubs.gradle"
+
+task skeleton(dependsOn: [copySettingsXml, copyMainBuildGradle, enrichPoms,
+  createGradles, copyLocalGradle, copyTrustStore, copyAatTest, copySitTest,
+  copyGreg, copyGitIgnore, copyReadme, createSettingsGradle]) {
+      doLast{}
+}
+
+if (project.ext.hasFlyway) {
+    if (project.ext.hasFlyway) {
+        new File('conf/flyway').mkdirs()
+    }
+    skeleton.dependsOn copyFlyway
+}
+
+if (project.ext.hasDatasource) {
+    if (project.ext.hasDatasource) {
+        new File('conf/datasource').mkdirs()
+    }
+    skeleton.dependsOn copyDatasource
+    skeleton.dependsOn copyProjectDatasource
+}
+
+if (project.ext.hasApi) {
+    skeleton.dependsOn copyApi
+}
+
+if (project.ext.components.contains("esb")) {
+    skeleton.dependsOn copyESB
+}
+
+if (project.ext.components.contains("dss")) {
+    skeleton.dependsOn copyDSS
+}

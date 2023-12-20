@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="@projectName@-v1-@routeName@-publish-sequence" onError="@projectName@-v1-error-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+  <!-- enable access to correlation ID for logging -->
+  <sequence key="common-init"/>
+
+  <property name="CAPABILITY" value="@capability@" />
+
+  <property description="log_ref" name="log_ref" value="@projectName@-v1-@routeName@-publish-sequence - "/>
+  <property description="logMessage" name="logMessage" expression="fn:concat($ctx:log_ref, 'start')" />
+  <call-template description="Call: logger-v2-template" target="logger-v2-template">
+      <with-param name="capability" value="{$ctx:CAPABILITY}"/>
+      <with-param name="logMessage" value="{$ctx:logMessage}"/>
+  </call-template>
+
+  <property name="HTTP_SC" scope="axis2" type="STRING" value="200"/>
+
+  <respond/>
+</sequence>

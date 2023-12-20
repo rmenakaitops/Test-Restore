@@ -1,0 +1,6 @@
+project.ext {
+  println "running log-local.gradle"
+  logDB = "mysql://localhost:3306/log"
+  logDBUsername = "root"
+  logDBPassword = "root"
+}

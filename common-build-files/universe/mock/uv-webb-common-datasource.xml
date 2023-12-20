@@ -1,0 +1,36 @@
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:xsd="http://org.apache.axis2/xsd"
+    xmlns:nds="http://services.core.ndatasource.carbon.wso2.org/xsd"
+    xmlns:ndsc="http://core.ndatasource.carbon.wso2.org/xsd">
+
+    <soapenv:Header/>
+    <soapenv:Body>
+        <xsd:addDataSource>
+            <xsd:dsmInfo>
+                <nds:definition>
+                    <nds:dsXMLConfiguration>
+                        <![CDATA[
+                            <configuration>
+                                <customDataSourceClass>com.mitra.middleware.dss.connector.universe.test.MockUniverseConnector</customDataSourceClass>
+                                <customDataSourceProps>
+                                    <property name="mock.location.url">@mockUrl@</property>
+                                    <property name="mock.user">@mockUsername@</property>
+                                    <property name="mock.password">@mockPassword@</property>
+                                </customDataSourceProps>
+                            </configuration>
+                        ]]>
+                    </nds:dsXMLConfiguration>
+                    <nds:type>DS_CUSTOM_QUERY</nds:type>
+                </nds:definition>
+                <nds:description>universe-webb-common</nds:description>
+                <nds:name>universe-webb-common</nds:name>
+                <nds:system>false</nds:system>
+                <nds:jndiConfig>
+                    <ndsc:name>jdbc/universe-webb-common</ndsc:name>
+                </nds:jndiConfig>
+            </xsd:dsmInfo>
+        </xsd:addDataSource>
+    </soapenv:Body>
+
+</soapenv:Envelope>

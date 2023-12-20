@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<p:abc xmlns:p="http://ws.wso2.org/dataservice">
+  <q:ghi xmlns:q="http://ws.wso2.org/dataservice">
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>a</d>
+      <e p="2">1</e>
+      <f>5</f>
+    </xs:def>
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>b</d>
+      <e p="2">2</e>
+      <f>5</f>
+    </xs:def>
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>c</d>
+      <e p="2">1</e>
+      <f>7</f>
+    </xs:def>
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>a</d>
+      <e p="2">6</e>
+      <f>8</f>
+    </xs:def>
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>b</d>
+      <e p="2">2</e>
+      <f>5</f>
+    </xs:def>
+    <xs:def xmlns:xs="http://ws.wso2.org/dataservice">
+      <d>c</d>
+      <e p="2">2</e>
+      <f>3</f>
+    </xs:def>
+  </q:ghi>
+</p:abc>

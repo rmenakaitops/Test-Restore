@@ -1,0 +1,41 @@
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:xsd="http://org.apache.axis2/xsd"
+    xmlns:nds="http://services.core.ndatasource.carbon.wso2.org/xsd"
+    xmlns:ndsc="http://core.ndatasource.carbon.wso2.org/xsd">
+
+    <soapenv:Header/>
+    <soapenv:Body>
+        <xsd:addDataSource>
+            <xsd:dsmInfo>
+                <nds:definition>
+                    <nds:dsXMLConfiguration>
+                        <![CDATA[
+                            <configuration>
+                                <customDataSourceClass>com.mitra.middleware.dss.connector.universe.UniverseConnector</customDataSourceClass>
+                                <customDataSourceProps>
+                                    <property name="universe.username">@uvCommonUsername@</property>
+                                    <property name="universe.password">@uvCommonPassword@</property>
+                                    <property name="universe.hostname">@uvOffBHost@</property>
+                                    <property name="universe.accountpath">@uvCommonAccount@</property>
+                                    <property name="universe.pool.threshold.idle">10000</property>
+                                    <property name="universe.pool.threshold.exec">10000</property>
+                                    <property name="universe.pool.connections.min">@uvCommonOffBMinConnections@</property>
+                                    <property name="universe.pool.connections.max">@uvCommonOffBMaxConnections@</property>
+                                </customDataSourceProps>
+                            </configuration>
+                        ]]>
+                    </nds:dsXMLConfiguration>
+                    <nds:type>DS_CUSTOM_QUERY</nds:type>
+                </nds:definition>
+                <nds:description>universe-offb-common</nds:description>
+                <nds:name>universe-offb-common</nds:name>
+                <nds:system>false</nds:system>
+                <nds:jndiConfig>
+                    <ndsc:name>jdbc/universe-offb-common</ndsc:name>
+                </nds:jndiConfig>
+            </xsd:dsmInfo>
+        </xsd:addDataSource>
+    </soapenv:Body>
+
+</soapenv:Envelope>

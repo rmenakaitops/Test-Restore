@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="@projectName@-v1-@routeName@-publish-in-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+  <!-- enable access to correlation ID for logging -->
+  <sequence key="common-init"/>
+
+  <property name="CAPABILITY" value="@capability@" />
+
+  <property description="log_ref" name="log_ref" value="@projectName@-v1-@routeName@-publish-in-sequence - "/>
+  <property description="logMessage" name="logMessage" expression="fn:concat($ctx:log_ref, 'start')" />
+  <call-template description="Call: logger-v2-template" target="logger-v2-template">
+      <with-param name="capability" value="{$ctx:CAPABILITY}"/>
+      <with-param name="logMessage" value="{$ctx:logMessage}"/>
+  </call-template>
+
+  <!-- Set properties before call to message store-->
+  <property name="OUT_ONLY" scope="default" type="STRING" value="true"/>
+
+  <!-- Put message on store -->
+  <send>
+      <endpoint name="rep-update-mb-endpoint">
+          <address trace="disable" uri="jms:/@topicName@?transport.jms.ConnectionFactoryJNDIName=TopicNoSSLConnectionFactory&amp;java.naming.factory.initial=org.wso2.andes.jndi.PropertiesFileInitialContextFactory&amp;java.naming.provider.url=repository/conf/jndi.properties&amp;transport.jms.DestinationType=topic"/>
+      </endpoint>
+  </send>
+
+  <property name="NO_ENTITY_BODY" scope="axis2" type="BOOLEAN" value="true" />
+  <respond/>
+</sequence>

@@ -1,0 +1,26 @@
+{
+  "swagger":"2.0",
+  "basePath":"/@projectName@/v1",
+  "info":{
+    "title":"@projectName@",
+    "description":"@projectName@",
+    "version":"v1"
+  },
+  "schemes":[
+    "https"
+  ],
+  "paths":{
+    "/status":{
+      "get":{
+        "description":"Healthcheck",
+        "x-auth-type":"Application",
+        "x-throttling-tier":"Unlimited",
+        "responses":{
+          "200":{
+            "description":"Success"
+          }
+        }
+      }
+    }
+  }
+}

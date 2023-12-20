@@ -1,0 +1,251 @@
+import static groovy.io.FileType.FILES
+import groovy.json.JsonSlurper
+import com.mitra.performance.dao.*;
+
+apply plugin: 'groovy'
+
+buildscript {
+
+    repositories {
+        jcenter()
+        mavenCentral()
+        mavenLocal()
+    }
+
+    def performanceTestSupportVersion = '0.0.2'
+    def mysqlVersion = '5.1.44'
+
+    dependencies {
+        classpath "mysql:mysql-connector-java:$mysqlVersion"
+    }
+}
+
+project.ext {
+  startTime = System.currentTimeMillis() - 300000 // Take off 5 minutes to allow for local clock skew
+  estimatedDuration = 1000
+  hours = System.getProperty('HOURS', "12")
+  dryRun = getProjectProperty('DRYRUN', true)
+}
+
+task runJobs() {
+  doFirst {
+    def hours = project.ext.hours.split(',')
+
+    hours.each { hour->
+      println("\n\nRunning for hour $hour...")
+      runJobsForHour(hour as Integer)
+    }
+  }
+}
+
+def runJobsForHour(hour) {
+
+  def projectList = fetchProjectsForHour(hour)
+
+  waitUntilNoJobsRunning(projectList)
+  runConcurrentJobs(projectList)
+  waitForJobsToComplete(projectList)
+}
+
+def waitUntilNoJobsRunning(projectList) {
+  def attempt = 1
+  def jobsRunning = true
+
+  while (attempt < 5 && jobsRunning == true) {
+
+    jobsRunning = false
+    def runningProjects = fetchRunningJobs(projectList)
+
+    if (runningProjects.size() > 0 && !project.ext.dryRun) {
+      jobsRunning = true
+      println("Jobs still running. Sleeping for 60 seconds")
+      sleep(60000)
+    }
+
+    attempt++
+  }
+
+  if (jobsRunning) {
+    throw new GradleException("Could not start as previous jobs still running. Giving up.")
+  }
+}
+
+def runConcurrentJobs(projectList) {
+
+  projectList.each { projectName->
+
+    if (project.ext.dryRun == false) {
+      def json = executeCurlPost("${project.ext.jenkinsURL}job/${projectName}_56_PERF_Run/build",
+        '{"parameter": [{"name":"HOUR", "value":"any"}]}', true)
+    } else {
+      println ("Dry run - not executing")
+    }
+    println ("Starting $projectName")
+  }
+}
+
+def waitForJobsToComplete(projectList) {
+  def attempt = 1
+  def jobsRunning = true
+  def sleepPeriod = project.ext.estimatedDuration / 10 / 1000
+  sleepPeriod = sleepPeriod.toInteger()
+
+  while (attempt < 20 && jobsRunning == true) {
+
+    jobsRunning = false
+    def outstandingProjects = fetchOutstandingJobs(projectList)
+
+    if (outstandingProjects.size() > 0 && !project.ext.dryRun) {
+      jobsRunning = true
+      println("Jobs still running. Sleeping for ${sleepPeriod} seconds")
+      sleep(sleepPeriod * 1000)
+    }
+
+    attempt++
+  }
+
+  if (jobsRunning) {
+    throw new GradleException("Jobs did not complete within time. Giving up.")
+  }
+}
+
+def fetchRunningJobs(projectList) {
+
+  def runningProjects = []
+
+  projectList.each { projectName->
+
+    def json = executeCurlGet("${project.ext.jenkinsURL}job/${projectName}_56_PERF_Run/lastBuild/api/json")
+
+    if (json.building == true) {
+      runningProjects.add(projectName)
+      println ("$projectName is still running")
+
+    }
+
+    if (json.estimatedDuration > project.ext.estimatedDuration) {
+      def estimatedDurationSeconds = json.estimatedDuration / 1000
+      println("Resetting estimated duration to ${estimatedDurationSeconds} seconds")
+      project.ext.estimatedDuration = json.estimatedDuration
+    }
+  }
+
+  return runningProjects
+}
+
+def fetchOutstandingJobs(projectList) {
+
+  def outstandingProjects = []
+
+  projectList.each { projectName->
+
+    def json = executeCurlGet("${project.ext.jenkinsURL}job/${projectName}_56_PERF_Run/lastBuild/api/json")
+
+    if (json.building == true || json.timestamp < project.ext.startTime) {
+      outstandingProjects.add(projectName)
+      println ("$projectName is still outstanding")
+    }
+  }
+
+  return outstandingProjects
+}
+
+def fetchProjectsForHour(hour) {
+
+  def performanceDbUrl = System.getProperty('performance-db-url', 'mysql://localhost')
+  def performanceDbSchema = System.getProperty('performance-db-schema', 'hours')
+  def performanceDbUser = System.getProperty('performance-db-user', 'root')
+  def performanceDbPassword = System.getProperty('performance-db-password', 'root')
+
+  def sqlDatabaseConnection = new SqlDatabaseConnection(performanceDbUrl , performanceDbSchema, performanceDbUser, performanceDbPassword)
+  def hours = new Hours(sqlDatabaseConnection)
+  def projectList = hours.findProjectsForHour(hour)
+  sqlDatabaseConnection.close()
+
+  def newProjectList = []
+  projectList.each { project->
+      newProjectList.add(project.replace('-perf', ''))
+  }
+  return newProjectList
+}
+
+def getProjectProperty(property, defaultProperty) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultProperty
+    }
+}
+
+def getProjectProperty(property) {
+    return getProjectProperty(property, "")
+}
+
+def extractExtraArgument(arguments, argumentName, defaultValue) {
+    def value = defaultValue
+    def argument = arguments.find({it.startsWith("-D"+argumentName) || it.startsWith("\"-D"+argumentName)})
+    if (argument != null && argument != '') {
+        def argumentAndValue = new ArrayList(Arrays.asList(argument.split('=')))
+        if (argumentAndValue.size == 2) {
+            value = argumentAndValue.get(1).replace('"', '')
+        }
+    }
+    return value
+}
+
+def executeCurlPost(url, data, ignoreResponse) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure',
+                '-X', 'POST',
+                "${url}",
+                '-d', "json="+URLEncoder.encode("$data")
+            ]
+            standardOutput = os
+        }
+
+        if (ignoreResponse) {
+            println os.toString()
+        } else {
+            response = new JsonSlurper().parseText(os.toString())
+        }
+    }
+
+    if (!ignoreResponse && response.errors != null && response.errors[0].status >= 400) {
+        println response.errors[0].message
+        throw new GradleException(response[0].errors.message)
+    }
+}
+
+def executeCurlGet(url) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure',
+                "${url}"
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    return response
+}

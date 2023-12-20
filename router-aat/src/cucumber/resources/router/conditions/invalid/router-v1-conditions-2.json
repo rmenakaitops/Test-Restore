@@ -1,0 +1,14 @@
+[
+   {
+      "condition":"55555",
+      "sequences":[
+         "router-v1-sample-channel1-sequence"
+      ]
+   },
+   {
+      "condition":"55555",
+      "sequences":[
+         "router-v1-sample-channel2-sequence"
+      ]
+   }
+]

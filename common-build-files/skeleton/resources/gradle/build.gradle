@@ -1,0 +1,67 @@
+buildscript {
+  def flywayVersion = "3.2.1"
+  def mySqlConnectorVersion = "5.1.6"
+
+	repositories {
+    mavenLocal()
+    jcenter()
+    mavenCentral()
+	}
+
+  dependencies {
+    classpath "org.flywaydb:flyway-gradle-plugin:${flywayVersion}"
+    classpath "mysql:mysql-connector-java:${mySqlConnectorVersion}"
+  }
+}
+
+plugins {
+  id 'com.jfrog.artifactory' version '3.1.0'
+}
+
+group = 'com.mitra.middleware.@projectName@'
+version = '1.0.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'maven-publish'
+
+apply from: 'common-build-files/common.gradle'
+apply from: 'common-build-files/car.gradle'
+apply from: 'common-build-files/deploy.gradle'
+apply from: 'common-build-files/promote.gradle'
+apply from: 'common-build-files/docker.gradle'
+apply from: 'common-build-files/datasource.gradle'
+
+///***********************************************************************
+// api manager deployment section
+///***********************************************************************
+
+project.ext {
+  swaggerFile =  "${projectDir}/swagger/api.json"
+  apiName = "rest-@projectName@"
+  apiContext = "/@projectName@"
+  apiVersion = "v1"
+  apiDescription = ""
+  apiTags = ""
+  documentUrl = ""
+  documentName = ""
+  productionEndpoint = "${esbHttpServer}${apiContext}/${apiVersion}"
+  sandboxEndpoint = "http://localhost"
+}
+
+apply from: 'common-build-files/api.gradle'
+
+if (System.getProperty('BUILD_TIMESTAMP') == null && System.getProperty('TRIGGER_BUILD_TIMESTAMP') == null){
+  apply from :'conf/local.gradle'
+}
+
+@applyFlyway@
+
+@dependsOnManageAndPublishApis@
+@dependsOnFlywayMigrate@
+@dependsOnDeployDataSource@
+
+apply from: 'common-build-files/checkDeployment.gradle'
+task checkDeployment(dependsOn: [@checkDeployment@]) {
+    doLast {}
+}
+

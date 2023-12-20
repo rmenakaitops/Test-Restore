@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<messageProcessor
+  class="org.apache.synapse.message.processor.impl.forwarder.ScheduledMessageForwardingProcessor"
+  messageStore="@projectName@-v1-@routeName@-message-store"
+  name="@projectName@-v1-@routeName@-message-processor"
+  targetEndpoint="gov:/endpoints/@projectName@-v1-@routeName@-publish-loopback-endpoint.xml" xmlns="http://ws.apache.org/ns/synapse">
+  <parameter name="message.processor.deactivate.sequence">@projectName@-v1-message-processor-deactivate-sequence</parameter>
+  <parameter name="max.delivery.drop">Disabled</parameter>
+  <parameter name="max.delivery.attempts">20</parameter>
+  <parameter name="client.retry.interval">30000</parameter>
+  <parameter name="member.count">1</parameter>
+  <parameter name="interval">50</parameter>
+  <parameter name="message.processor.fault.sequence">@projectName@-v1-message-processor-fault-sequence</parameter>
+  <parameter name="is.active">true</parameter>
+  <parameter name="message.processor.reply.sequence">@projectName@-v1-message-processor-reply-sequence</parameter>
+</messageProcessor>

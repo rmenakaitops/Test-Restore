@@ -1,0 +1,108 @@
+import groovy.json.JsonSlurper
+
+ext {
+    artifactoryUrl = getProjectProperty('artifactory-url')
+    artifactoryUsername = getProjectProperty('artifactory-username')
+    artifactoryPassword = getProjectProperty('artifactory-password')
+    releaseRepository = getProjectProperty('release-repository')
+    buildNumber = getProjectProperty('build-number')
+
+    releaseVersion = rootProject.version.replace('-SNAPSHOT','')
+    snapshotVersion = releaseVersion + '-SNAPSHOT'
+}
+
+def getProjectProperty(property) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return ''
+    }
+}
+
+def executeCurlPost(url, credentials, data, ignoreResponse) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '-u', credentials,
+                '--insecure',
+                '-X', 'POST',
+                '-H', 'Content-Type: application/json',
+                "${url}",
+                '-d', data
+            ]
+            standardOutput = os
+        }
+
+        if (ignoreResponse) {
+            println os.toString()
+        } else {
+            response = new JsonSlurper().parseText(os.toString())
+        }
+    }
+
+    if (!ignoreResponse && response.errors != null && response.errors[0].status >= 400) {
+        println response.errors[0].message
+        throw new GradleException(response[0].errors.message)
+    }
+}
+
+def executeCurlGet(url) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure',
+                "${url}"
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    return response
+}
+
+task checkIfVersionReleased() {
+    doLast {
+        def response = executeCurlGet(project.ext.artifactoryUrl+"/api/search/versions?g="+rootProject.group+"&a="+project.name+"&repos="+project.ext.releaseRepository)
+
+        if (response.errors == null) {
+
+            response.results.each {
+                if (it.version == project.ext.releaseVersion) {
+                    throw new GradleException("Release version ${project.ext.releaseVersion} of ${rootProject.group}.${project.name} already exists. Please update version.")
+                }
+            }
+        }
+    }
+}
+
+
+task promoteToRelease() {
+    doLast {
+        def build = rootProject.group+"."+project.name
+
+        executeCurlPost(project.ext.artifactoryUrl+"/api/plugins/build/promote/snapshotToRelease/"+build+"/"+project.ext.buildNumber+"?params=snapExp=d{14}|targetRepository="+project.ext.releaseRepository,
+            project.ext.artifactoryUsername+':'+project.ext.artifactoryPassword,
+            "",
+            true)
+    }
+}
+
+promoteToRelease.dependsOn checkIfVersionReleased

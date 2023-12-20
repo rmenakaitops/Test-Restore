@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/@projectName@/v1" name="@projectName@-v1" xmlns="http://ws.apache.org/ns/synapse">
+  <resource methods="GET" protocol="https" uri-template="/status">
+    <inSequence>
+        <property name="HTTP_SC" scope="axis2" type="STRING" value="200"/>
+        <respond/>
+    </inSequence>
+    <outSequence/>
+    <faultSequence/>
+  </resource>
+</api>

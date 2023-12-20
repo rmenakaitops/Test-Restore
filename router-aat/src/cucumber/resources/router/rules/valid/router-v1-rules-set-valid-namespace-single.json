@@ -1,0 +1,23 @@
+[
+  {
+    "active": true,
+    "xpathRule": "(//*[local-name() = 'd'])[1]/node()",
+    "conditions": [
+      {
+        "condition": "a",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel2-sequence",
+	      "router-v1-sample-channel3-sequence"
+        ]
+      },
+      {
+        "condition": "h",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel4-sequence"	 
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,11 @@
+
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task copyApi(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/swagger") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into '$projectDir/../../swagger'
+}

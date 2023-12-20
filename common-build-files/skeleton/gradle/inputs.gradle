@@ -1,0 +1,23 @@
+def console = System.console()
+
+println "\nPlease supply the following information:\n\n"
+
+def defaultProjectName = projectDir.getParentFile().getName()
+
+project.ext.projectName = console.readLine("> Project name [$defaultProjectName]: ")
+
+if (project.ext.projectName == "") {
+    project.ext.projectName = defaultProjectName
+}
+
+project.ext.components = console.readLine('> Comma separated list of WSO2 components (eg esb,dss,das): ').split(',')
+project.ext.hasFlyway = console.readLine('> Uses flyway? [N]: ')
+
+if (project.ext.hasFlyway) {
+    project.ext.schema = console.readLine('> Schema name: ')
+} else {
+    project.ext.schema = ""
+}
+
+project.ext.hasApi = console.readLine('> Has API? [N]: ')
+project.ext.hasDatasource = console.readLine('> Has Carbon Datasource? [N]: ')

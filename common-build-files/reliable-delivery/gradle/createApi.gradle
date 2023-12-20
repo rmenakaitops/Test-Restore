@@ -1,0 +1,108 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+def apiExists = true
+
+task createApi() {
+
+    def xmlFile = "$projectDir/../" + project.ext.projectName + "-esb/src/main/synapse-config/api/" + project.ext.projectName + "-v1.xml"
+    def fileLocation = new File("$projectDir/../" + project.ext.projectName + "-esb/src/main/synapse-config/api/")
+    def file = new File(xmlFile)
+
+    if( !file.exists() ) {
+      apiExists = false
+
+      fileLocation.mkdirs()
+
+      new File(fileLocation, project.ext.projectName + "-v1.xml").withWriterAppend { w ->
+        w << '<?xml version="1.0" encoding="UTF-8"?><api context="/' + project.ext.projectName + '/v1" name="' + project.ext.projectName + '-v1" xmlns="http://ws.apache.org/ns/synapse"></api>'
+      }
+    }
+
+    def xml = new XmlParser().parse(xmlFile)
+    def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/api.xml")
+
+    xmlTemplate.@faultSequence = project.ext.projectName + "-v1-error-sequence"
+    xmlTemplate.@inSequence = project.ext.projectName + "-v1-" + project.ext.routeName + "-publish-in-sequence"
+    xmlTemplate.@"uri-template" = "/" + project.ext.routeName
+    xmlTemplate.@methods = "POST"
+    xmlTemplate.@protocol = "https"
+
+    xml.children().add(0, xmlTemplate)
+
+    def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+    nodePrinter.preserveWhitespace = true
+    nodePrinter.print(xml)
+}
+
+task createApiArtifact() {
+      def fileLocation = new File("$projectDir/../" + project.ext.projectName + "-esb")
+      def xmlFile = "$projectDir/../" + project.ext.projectName + "-esb/artifact.xml"
+
+      def pomFile = "$projectDir/../" + project.ext.projectName + "-esb/pom.xml"
+      def pom = new XmlParser().parse(pomFile)
+      def groupId = pom.groupId.text()
+
+      if( !fileLocation.exists() ) {
+        apiExists = false
+
+        fileLocation.mkdirs()
+
+        new File(fileLocation, "artifact.xml").withWriterAppend { w ->
+          w << '<artifacts></artifacts>'
+        }
+      }
+
+      if (!apiExists) {
+          def xml = new XmlParser().parse(xmlFile)
+          def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/artifact.xml")
+
+          def fileName = project.ext.projectName + "-v1"
+          xmlTemplate.@name = fileName
+          xmlTemplate.@groupId = groupId + ".api"
+          xmlTemplate.@type = "synapse/api"
+          xmlTemplate.file[0].value = "src/main/synapse-config/api/" + fileName + ".xml"
+
+          xml.children().add(0, xmlTemplate)
+
+          def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+          nodePrinter.preserveWhitespace = true
+          nodePrinter.print(xml)
+      }
+}
+
+task createApiPom() {
+      def xmlFile = "$projectDir/../" + project.ext.projectName + "/pom.xml"
+      def xml = new XmlParser().parse(xmlFile)
+
+      def pomFile = "$projectDir/../" + project.ext.projectName + "-esb/pom.xml"
+      def pom = new XmlParser().parse(pomFile)
+      def groupId = pom.groupId.text()
+
+      def fileName = project.ext.projectName + "-v1"
+      def nodeName = groupId + '.api_._' + fileName
+
+      for (def node : xml.breadthFirst()) {
+        if (node.name().toString().split('}')[1] == nodeName) {
+          apiExists = true;
+          return
+        }
+      }
+
+      if (!apiExists) {
+        def newNode = new Node(null, nodeName, 'capp/EnterpriseServiceBus')
+        xml.properties[0].children().add(0, newNode)
+
+        def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/pom-dependency.xml")
+        xmlTemplate.groupId[0].value = groupId + ".api"
+        xmlTemplate.artifactId[0].value = fileName
+
+        xml.dependencies[0].children().add(0, xmlTemplate)
+
+        def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+        nodePrinter.preserveWhitespace = true
+        nodePrinter.print(xml)
+      }
+
+      addPluginToPom("api", pomFile)
+}

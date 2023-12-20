@@ -1,0 +1,424 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import static groovy.io.FileType.FILES
+import org.rendersnake.HtmlAttributes
+import org.rendersnake.HtmlCanvas
+import org.rendersnake.tools.PrettyWriter
+import static org.rendersnake.HtmlAttributesFactory.class_
+import static org.rendersnake.HtmlAttributesFactory.lang
+import static org.rendersnake.HtmlAttributesFactory.href
+import groovy.json.JsonSlurper
+import org.yaml.snakeyaml.Yaml
+import com.mitra.performance.dao.*;
+
+apply plugin: 'net.foragerr.jmeter'
+apply plugin: 'groovy'
+
+buildscript {
+
+    repositories {
+        jcenter()
+        mavenCentral()
+        mavenLocal()
+        maven { url 'https://dl.bintray.com/jmeter-gradle-plugin/jmeter' }
+    }
+
+    def jMeterGradlePluginVersion = '1.0.7-3.0-BETA'
+    def performanceTestSupportVersion = '0.0.8'
+    def snakeyamlVersion = '1.12'
+    def mysqlVersion = '5.1.44'
+
+    dependencies {
+        classpath "net.foragerr.jmeter:jmeter-gradle-plugin:$jMeterGradlePluginVersion"
+        classpath "org.yaml:snakeyaml:$snakeyamlVersion"
+        classpath "mysql:mysql-connector-java:$mysqlVersion"
+    }
+}
+
+def datasourceGradle = new File("$projectDir/conf/datasource/ds-" + getProjectProperty("deploy-environment","local") + ".gradle")
+
+if (datasourceGradle.exists()) {
+    apply from: datasourceGradle
+}
+
+boolean isCollectionOrArray(object) {
+    [Collection, Object[]].any { it.isAssignableFrom(object.getClass()) }
+}
+
+task prepareJndiProperties() {
+    doLast {
+        def generated = new File("$projectDir/src/test/resources/generated")
+
+        if (!generated.exists()) {
+            generated.mkdir()
+        }
+
+        def newJndiProperties  = new File("$projectDir/src/test/resources/generated/jndi.properties")
+
+        def mbHost1 = "tcp://${project.ext.mb1Broker}".toString()
+        def mbHost2 = "tcp://${project.ext.mb2Broker}".toString()
+        def mbPassword = extractExtraArgument(extraArguments, "server-mb-password", 'admin')
+        def mbUsername = extractExtraArgument(extraArguments, "server-mb-username", 'admin')
+        def trustStorePassword = System.getProperty('wso2carbon-password', 'wso2carbon')
+        def keyStorePassword = System.getProperty('wso2carbon-password', 'wso2carbon')
+
+        def templateName = ''
+        def suffix = ''
+
+        if (mbHost1.startsWith("tcp://mb-")) {
+            templateName = 'jndi.properties.template'
+            suffix = '.template'
+        } else {
+            templateName = 'jndi.properties.local.template'
+            suffix = '.local.template'
+        }
+
+        copy {
+            from ("$projectDir/../common-build-files") {
+                include templateName
+                filter(ReplaceTokens, tokens: [messageBrokerUrl: mbHost1, messageBroker1Url: mbHost1, messageBroker2Url: mbHost2,
+                    messageBrokerAdminPassword: mbPassword, messageBrokerAdminUser: mbUsername, trustStorePassword: trustStorePassword, keyStorePassword: keyStorePassword])
+            }
+            into "$projectDir/src/test/resources/generated"
+            rename { String fileName ->
+                fileName.replace(suffix, '')
+            }
+        }
+
+        if (project.ext.has("jndiTopicName")) {
+            def topicName = project.ext.jndiTopicName
+            newJndiProperties.append("\ntopic.$topicName = $topicName\n")
+        }
+
+        if (project.ext.has("jndiQueueName")) {
+            if (isCollectionOrArray(project.ext.jndiQueueName)) {
+                project.ext.jndiQueueName.each {
+                    newJndiProperties.append("\nqueue.$it = $it\n")
+                }
+            } else {
+                def queueName = project.ext.jndiQueueName
+                newJndiProperties.append("\nqueue.$queueName = $queueName\n")
+            }
+        }
+    }
+}
+
+task copyFilesToJMeterBin(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from "jmeter/bin"
+    into "build/jmeter/bin/"
+}
+
+task copyJarsToJMeterLib(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from "jmeter/lib"
+    into "build/jmeter/lib/"
+}
+
+task copyJMeterLibToJMeterLib(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from configurations.jmeterLib
+    into "build/jmeter/lib/"
+    include '**/*.jar'
+}
+
+task copyJMeterLibExtToJMeterLib(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from configurations.jmeterLibExt
+    into "build/jmeter/lib/ext/"
+    include '**/*.jar'
+}
+
+task copyJKSToJMeterLib(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from "../"
+    into "build/"
+    include 'wso2carbon.jks'
+}
+
+jmRun.dependsOn copyFilesToJMeterBin
+jmRun.dependsOn copyJarsToJMeterLib
+jmRun.dependsOn copyJMeterLibToJMeterLib
+jmRun.dependsOn copyJMeterLibExtToJMeterLib
+jmRun.dependsOn copyJKSToJMeterLib
+
+jmRun.doFirst {
+    jmeter {
+        def hostAndPort = project.ext.amHttpServer.split("//")[1].split(":")
+
+        def host = hostAndPort[0]
+
+        def port = 443
+
+        if (hostAndPort.length >= 2) {
+            port = hostAndPort[1].split("/")[0]
+        }
+
+        def esbHostAndPort = project.ext.esbHttpServer.split("//")[1].split(":")
+        def esbHost = esbHostAndPort[0]
+        def esbPort = 443
+        if (esbHostAndPort.length >= 2) {
+            esbPort = esbHostAndPort[1].split("/")[0]
+        }
+
+        def performanceProperties = loadPerformanceProperties()
+        def yamlProperties = loadYamlProperties()
+        def performancePropertiesArray = constructProperties(performanceProperties, yamlProperties, "")
+
+        def testList = []
+        def hour = getProjectProperty("hour")
+
+        performanceProperties.tests.each{ job->
+            if (hour == "any" || job.properties.peakHours.contains(Integer.parseInt(hour))) {
+                testList << file("src/test/resources/${job.name}.jmx")
+                println "Scheduling test ${job.name}..."
+            }
+
+            if (getProjectProperty("storePeakHours", false)) {
+                def sqlDatabaseConnection = connectToPerformanceDatabase()
+
+                def maximumMessageTimeInMilliseconds = 0
+
+                if (job.properties.containsKey('maximumMessageTimeInMilliseconds')) {
+                    maximumMessageTimeInMilliseconds = job.properties.maximumMessageTimeInMilliseconds
+                } else {
+                    println "\n********\n******* Please supply maximumMessageTimeInMilliseconds in performance.json\n********\n\n"
+                }
+
+                def averageMessageTimeInMilliseconds = 0
+
+                if (job.properties.containsKey('averageMessageTimeInMilliseconds')) {
+                    averageMessageTimeInMilliseconds = job.properties.averageMessageTimeInMilliseconds
+                } else {
+                    println "\n********\n******* Please supply averageMessageTimeInMilliseconds in performance.json\n********\n\n"
+                }
+
+                try {
+                    def peakHours = job.properties.peakHours
+
+                    if (peakHours == null) {
+                        peakHours = []
+                    }
+
+                    println("Storing test " + project.name + " " + job.name + " '" + peakHours + "' " + maximumMessageTimeInMilliseconds + " " + averageMessageTimeInMilliseconds)
+                    def hours = new Hours(sqlDatabaseConnection)
+                    hours.storeHoursWithMessageTimes(project.name, job.name, peakHours, maximumMessageTimeInMilliseconds, averageMessageTimeInMilliseconds)
+                } catch (Exception ex) {
+                    println(ex.getMessage())
+                }
+
+                sqlDatabaseConnection.close()
+            }
+        }
+
+        jmTestFiles = testList
+        enableReports = true
+        enableExtendedReports = true
+        minHeapSize = "1g"
+        maxHeapSize = "2g"
+        def properties = [
+            "gradle.environment=" + System.getProperty('deploy-environment','local'),
+            "wso2carbon-password=" + System.getProperty('wso2carbon-password'),
+            "user.classpath=$projectDir/lib",
+            "gradle.projectDir=$projectDir",
+            "apim.host=$host",
+            "apim.port=$port",
+            "esb.host=$esbHost",
+            "esb.port=$esbPort",
+            "apim.bearerToken=" + project.ext.bearerToken,
+            "jdbc.url=" + "mysql://" + project.ext.mySqlHost,
+            "jdbc.username=" + project.ext.mySqlUsername,
+            "jdbc.password=" + project.ext.mySqlPassword
+        ]
+
+        properties.addAll(performancePropertiesArray)
+        jmUserProperties = properties
+        jmSystemProperties = [
+            "-Dwso2carbon-password=" + System.getProperty('wso2carbon-password')
+        ]
+    }
+}
+
+task copyJarsToJMeterLocalLib(type: Copy) {
+    outputs.upToDateWhen { false }
+
+    def path = System.getenv("JMETER_PATH")
+
+    from "jmeter/lib"
+    into "$path/lib/"
+    include '**/*.jar'
+}
+
+task copyJMeterLibToJMeterLocalLib(type: Copy) {
+    outputs.upToDateWhen { false }
+
+    def path = System.getenv("JMETER_PATH")
+
+    from configurations.jmeterLib
+    into "$path/lib/"
+    include '**/*.jar'
+}
+
+task copyJMeterLibExtToJMeterLocalLib(type: Copy) {
+    outputs.upToDateWhen { false }
+
+    def path = System.getenv("JMETER_PATH")
+
+    from configurations.jmeterLibExt
+    into "$path/lib/ext/"
+    include '**/*.jar'
+}
+
+task runJMeter(type: Exec) {
+
+    def path = System.getenv("JMETER_PATH")
+    def performanceProperties = loadPerformanceProperties()
+    def yamlProperties = loadYamlProperties()
+    def performancePropertiesArray = constructProperties(performanceProperties, yamlProperties, "-J")
+
+    executable "$path/bin/jmeter"
+    def properties = [ "-Jgradle.environment=local",  "-Juser.classpath=$projectDir/lib",
+      "-Jgradle.projectDir=$projectDir",  "-Japim.host=localhost",
+      "-Japim.port=8246",  "-Japim.bearerToken=" + project.ext.bearerToken,
+      "-Jesb.host=localhost", "-Jesb.port=8244",
+      "-Jjdbc.url=mysql://" + project.ext.mySqlHost,
+      "-Jjdbc.username="+project.ext.mySqlUsername,
+      "-Jjdbc.password="+project.ext.mySqlPassword
+      ]
+
+    properties.addAll(performancePropertiesArray)
+
+    args properties
+
+}
+
+runJMeter.dependsOn copyJarsToJMeterLocalLib
+runJMeter.dependsOn copyJMeterLibToJMeterLocalLib
+runJMeter.dependsOn copyJMeterLibExtToJMeterLocalLib
+
+task generateIndex() {
+    doLast {
+        def list = []
+
+        def dir = new File("$projectDir/build/jmeter-report")
+        dir.eachFileRecurse() {
+            if (it.name.endsWith(".html") && it.name.contains("jmx")) {
+                list << it.name
+            }
+        }
+
+        HtmlCanvas html = new HtmlCanvas(new PrettyWriter());
+        html.html(lang("en"))
+                .head()
+                    .title()
+                        .content("Test Report Index")
+                ._head()
+                .body()
+                    .div(class_("simple"))
+                        .h1().content("Extended Test Report")
+                        .p().content("Generated by jmeter-gradle-plugin")
+                    ._div()
+
+        list.each { String file->
+            html.div(class_("image"))
+                    .a(href(file))
+                    .content(file)
+                ._div()
+        }
+
+        html._body()._html()
+
+        new File(dir, "index.html").write(html.toHtml())
+    }
+}
+
+jmReport.finalizedBy generateIndex
+
+def getProjectProperty(property, defaultProperty) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultProperty
+    }
+}
+
+def getProjectProperty(property) {
+    return getProjectProperty(property, "")
+}
+
+def extractExtraArgument(arguments, argumentName, defaultValue) {
+    def value = defaultValue
+    def argument = arguments.find({it.startsWith("-D"+argumentName) || it.startsWith("\"-D"+argumentName)})
+    if (argument != null && argument != '') {
+        def argumentAndValue = new ArrayList(Arrays.asList(argument.split('=')))
+        if (argumentAndValue.size == 2) {
+            value = argumentAndValue.get(1).replace('"', '')
+        }
+    }
+    return value
+}
+
+def constructProperties(performanceProperties,yamlProperties,prefix) {
+
+    def properties = new ArrayList()
+
+    performanceProperties.tests.each {
+        def test = it
+
+        it.properties.each {
+            properties.add(prefix + test.name + "." + it.toString())
+        }
+    }
+
+    yamlProperties.each {
+        properties.add(prefix + "yaml." + it)
+    }
+
+    return properties.toArray()
+}
+
+def loadPerformanceProperties() {
+    def inputFile = new File("$projectDir/performance.json")
+    def json = new JsonSlurper().parseText(inputFile.text)
+
+    return json
+}
+
+def loadYamlProperties() {
+
+    def environmentFile = new File("$projectDir/conf/properties.yaml")
+    def properties = []
+
+    if (environmentFile.exists()) {
+        def yaml = new Yaml()
+        def map = (Map)yaml.load(environmentFile.text)
+
+        def env = getProjectProperty("deploy-environment", "local")
+
+        map.environments[env].each {
+            properties << it
+        }
+    }
+
+    return properties
+}
+
+def connectToPerformanceDatabase() {
+    def performanceDbUrl = System.getProperty('performance-db-url', 'mysql://localhost')
+    def performanceDbSchema = System.getProperty('performance-db-schema', 'hours')
+    def performanceDbUser = System.getProperty('performance-db-user', 'root')
+    def performanceDbPassword = System.getProperty('performance-db-password', 'root')
+    def sqlDatabaseConnection = new SqlDatabaseConnection(performanceDbUrl , performanceDbSchema, performanceDbUser, performanceDbPassword)
+
+    return sqlDatabaseConnection
+}
+

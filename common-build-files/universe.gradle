@@ -1,0 +1,175 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+def getProjectProperty(property, defaultPropertyValue) {
+
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
+def prefix = new File(System.getProperty("user.dir") + '/common-build-files/').exists() ? System.getProperty("user.dir") : System.getProperty("user.dir") + '/..'
+
+task uniVerseDatasourceConfigure() {
+    doLast {
+        apply from: "${prefix}/common-build-files/universe/conf/ds-" + getProjectProperty("deploy-environment", "local") + ".gradle"
+    }
+}
+
+task uniVerseCreateMockEnvDataSource(type: Copy) {
+
+  def environment = getProjectProperty("deploy-environment", "local")
+
+  outputs.upToDateWhen { false }
+
+  from "${prefix}/common-build-files/universe/deploy/"
+  into "${prefix}/common-build-files/universe/deploy/"
+
+  include "*datasource.xml"
+  rename '(.*).xml', '$1-'+"${environment}.xml"
+
+  doFirst {
+
+    def tokens = [
+
+      "mockUsername": project.ext.mockUsername,
+      "mockPassword": project.ext.mockPassword,
+      "mockUrl": project.ext.mockUrl
+    ]
+
+    filter(ReplaceTokens, tokens: tokens)
+  }
+}
+
+task uniVerseCreateRealEnvDataSource(type: Copy) {
+
+  def environment = getProjectProperty("deploy-environment", "local")
+
+  outputs.upToDateWhen { false }
+
+  from "${prefix}/common-build-files/universe/deploy/"
+  into "${prefix}/common-build-files/universe/deploy/"
+
+  include "*datasource.xml"
+  rename '(.*).xml', '$1-'+"${environment}.xml"
+
+  doFirst {
+
+    def tokens = [
+
+      "uvOffBHost": project.ext.uvOffBHost,
+      "uvPosAHost": project.ext.uvPosAHost,
+      "uvPosBHost": project.ext.uvPosBHost,
+      "uvWebBHost": project.ext.uvWebBHost,
+      "uvCommonAccount": project.ext.uvCommonAccount,
+      "uvWarehouseAccount": project.ext.uvWarehouseAccount,
+      "uvCommonUsername": project.ext.uvCommonUsername,
+      "uvCommonPassword": project.ext.uvCommonPassword,
+      "uvWarehouseUsername": project.ext.uvWarehouseUsername,
+      "uvWarehousePassword": project.ext.uvWarehousePassword,
+      "uvCommonMinConnections": project.ext.uvCommonMinConnections,
+      "uvCommonMaxConnections": project.ext.uvCommonMaxConnections,
+      "uvWarehouseMinConnections": project.ext.uvWarehouseMinConnections,
+      "uvWarehouseMaxConnections": project.ext.uvWarehouseMaxConnections,
+
+      "uvCommonOffBMinConnections": project.hasProperty('uvCommonOffBMinConnections') ? project.property('uvCommonOffBMinConnections') : project.property('uvCommonMinConnections'),
+      "uvCommonOffBMaxConnections": project.hasProperty('uvCommonOffBMaxConnections') ? project.property('uvCommonOffBMaxConnections') : project.property('uvCommonMaxConnections'),
+
+      "uvCommonPosAMinConnections": project.hasProperty('uvCommonPosAMinConnections') ? project.property('uvCommonPosAMinConnections') : project.property('uvCommonMinConnections'),
+      "uvCommonPosAMaxConnections": project.hasProperty('uvCommonPosAMaxConnections') ? project.property('uvCommonPosAMaxConnections') : project.property('uvCommonMaxConnections'),
+
+      "uvCommonPosBMinConnections": project.hasProperty('uvCommonPosBMinConnections') ? project.property('uvCommonPosBMinConnections') : project.property('uvCommonMinConnections'),
+      "uvCommonPosBMaxConnections": project.hasProperty('uvCommonPosBMaxConnections') ? project.property('uvCommonPosBMaxConnections') : project.property('uvCommonMaxConnections'),
+
+      "uvCommonWebBMinConnections": project.hasProperty('uvCommonWebBMinConnections') ? project.property('uvCommonWebBMinConnections') : project.property('uvCommonMinConnections'),
+      "uvCommonWebBMaxConnections": project.hasProperty('uvCommonWebBMaxConnections') ? project.property('uvCommonWebBMaxConnections') : project.property('uvCommonMaxConnections'),
+
+      "uvWarehousePosAMinConnections": project.hasProperty('uvWarehousePosAMinConnections') ? project.property('uvWarehousePosAMinConnections') : project.property('uvWarehouseMinConnections'),
+      "uvWarehousePosAMaxConnections": project.hasProperty('uvWarehousePosAMaxConnections') ? project.property('uvWarehousePosAMaxConnections') : project.property('uvWarehouseMaxConnections')
+    ]
+
+    filter(ReplaceTokens, tokens: tokens)
+  }
+}
+
+def doDeploy(prefix, user, password, server) {
+
+  def environment = getProjectProperty("deploy-environment", "local")
+  def pass = "${user}:${password}"
+  def url = "${server}/services/NDataSourceAdmin.NDataSourceAdminHttpsSoap11Endpoint"
+  def datasourceDirectory = "${prefix}/common-build-files/universe/deploy/"
+
+  def directory = new File(datasourceDirectory)
+  def classPattern = ~/.*datasource-$environment\.xml/
+  directory.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+
+    if (file ==~ classPattern)
+    {
+        def response
+
+        println "\nDeploying datasource $file..."
+
+        new ByteArrayOutputStream().withStream { os ->
+
+          def result = exec {
+
+              executable = "curl"
+              args = [
+                  "-S", "-s", "-u", pass,
+                  "--noproxy", "*",
+                  "--insecure", "-X", "POST",
+                  "--header", "Content-Type:text/xml;charset=UTF-8",
+                  "--header", "SOAPAction:addDataSource",
+                  url, "--data", "@${file}"
+              ]
+
+              standardOutput = os
+          }
+
+          response = os.toString()
+        }
+
+      println response
+    }
+  }
+}
+
+task uniVerseDeployMockDataSource {
+    doLast {
+        doDeploy(prefix, esbUsername, esbPassword, esbServer)
+        doDeploy(prefix, dssUsername, dssPassword, dssServer)
+    }
+}
+
+task uniVerseDeployRealDataSource {
+    doLast {
+        doDeploy(prefix, esbUsername, esbPassword, esbServer)
+        doDeploy(prefix, dssUsername, dssPassword, dssServer)
+    }
+}
+
+task overlayMockUniVerseConfig(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from "${prefix}/common-build-files/universe/mock/"
+    into "${prefix}/common-build-files/universe/deploy/"
+}
+
+task overlayRealUniVerseConfig(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from "${prefix}/common-build-files/universe/real/"
+    into "${prefix}/common-build-files/universe/deploy/"
+}
+
+overlayMockUniVerseConfig.finalizedBy uniVerseDeployMockDataSource
+overlayRealUniVerseConfig.finalizedBy uniVerseDeployRealDataSource
+
+uniVerseCreateMockEnvDataSource.dependsOn uniVerseDatasourceConfigure
+uniVerseCreateRealEnvDataSource.dependsOn uniVerseDatasourceConfigure
+
+uniVerseDeployMockDataSource.dependsOn uniVerseCreateMockEnvDataSource
+uniVerseDeployRealDataSource.dependsOn uniVerseCreateRealEnvDataSource

@@ -1,0 +1,5 @@
+project.ext {
+  mySqlHost = System.getenv("RDS_MYSQL_SIT_SERVER")
+  mySqlUsername = "replace-me"
+  mySqlPassword = "replace-me"
+}

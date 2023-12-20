@@ -1,0 +1,17 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+apply from: "$rootDir/reliable-delivery/gradle/common-methods.gradle"
+
+task createMessageStoreFile(type: Copy) {
+    outputs.upToDateWhen { false }
+    copyFile("message-store", "message-store")
+}
+
+task createMessageStoreArtifact() {
+    addFileToArtifact("message-store", "message-store")
+}
+
+task createMessageStorePom() {
+    addDependancyToPom("message-store", "message-store")
+}

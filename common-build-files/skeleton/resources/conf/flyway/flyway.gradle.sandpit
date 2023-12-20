@@ -1,0 +1,4 @@
+flyway.user     = 'mysqladmin'
+flyway.password = ''
+flyway.url      = ""
+

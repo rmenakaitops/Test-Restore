@@ -1,0 +1,157 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        jcenter { url "http://jcenter.bintray.com/" }
+        maven { url 'http://repository-saucelabs.forge.cloudbees.com/release/' }
+        maven { url "http://maven.wso2.org/nexus/content/groups/wso2-public/" }
+    }
+    dependencies {
+        classpath "com.github.samueltbrown:gradle-cucumber-plugin:0.9"
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'com.github.samueltbrown.cucumber'
+
+eclipse.classpath.file {
+    whenMerged { classpath ->
+        classpath.entries.removeAll { entry -> entry.kind == 'lib' && entry.path ==~ /.*build\/.*\/.*/ }
+    }
+}
+
+repositories {
+    mavenLocal()
+    jcenter()
+    maven { url 'http://repository-saucelabs.forge.cloudbees.com/release/' }
+    maven { url "http://maven.wso2.org/nexus/content/groups/wso2-public/" }
+}
+
+dependencies {
+    testCompile 'org.wso2:wso2:5'
+    testCompile 'org.slf4j:slf4j-simple:1.6.1'
+    testCompile 'junit:junit:4.12'
+    testCompile "org.hamcrest:hamcrest-all:1.3"
+    testCompile 'org.assertj:assertj-core:2.6.0'
+    testCompile "org.picocontainer:picocontainer:2.15"
+    testCompile 'org.apache.httpcomponents:httpclient:4.5.1'
+    testCompile 'org.codehaus.jackson:jackson-mapper-asl:1.9.13' 
+    testCompile 'org.jdbi:jdbi:2.71'
+    testCompile 'mysql:mysql-connector-java:5.1.38'
+    testCompile 'javax.jms:jms:1.1'
+    testCompile 'javax.jms:javax.jms-api:2.0.1'
+    testCompile 'org.xmlunit:xmlunit-core:2.2.1'
+    testCompile 'org.xmlunit:xmlunit-matchers:2.2.1'
+
+    cucumberCompile 'info.cukes:cucumber-java:1.2.2'
+    cucumberCompile "info.cukes:cucumber-junit:1.2.2"
+    cucumberCompile 'info.cukes:cucumber-testng:1.2.2'
+    cucumberCompile 'info.cukes:cucumber-picocontainer:1.2.2'
+
+    cucumberRuntime 'info.cukes:cucumber-groovy:1.2.2'
+    cucumberRuntime 'org.codehaus.groovy:groovy:2.4.3'
+}
+
+apply from: '../common-build-files/common.gradle'
+apply from: '../common-build-files/datasource.gradle'
+apply from: '../common-build-files/docker.gradle'
+
+task writeCucumberEnvironmentProperties {
+    def mbBrokerServer = messageBrokerConfig()
+    def mbUsername = extractExtraArgument(extraArguments, "server-mb-username", "admin")
+    def mbPassword = extractExtraArgument(extraArguments, "server-mb-password", "admin")
+
+    Properties props = new Properties()
+    
+    File propsFile = file('src/cucumber/resources/cucumber.properties')
+    
+    props.setProperty('apiManagerHttpServer', "${amHttpServer}")
+    props.setProperty('esbHttpServer', "${esbHttpServer}")
+    props.setProperty('esbServer', "${esbServer}")
+    props.setProperty('mbServer', "${mbBrokerServer}")
+    props.setProperty('mbUsername', "${mbUsername}")
+    props.setProperty('mbPassword', "${mbPassword}")
+    props.setProperty('mbHttpServer', "${mbHttpServer}")
+    props.setProperty('dasHttpServer', "${dasHttpServer}")
+    props.setProperty('dasUsername', "${dasUsername}")
+    props.setProperty('dasPassword', "${dasPassword}")
+    props.setProperty('wso2carbon-password', getSystemProperty('wso2carbon-password'))
+
+    props.store(propsFile.newWriter(), null)
+
+    writeCucumberEnvironmentProperties.ext.systemProps = props
+}
+
+cucumber {
+    formats = ['pretty','json:build/cucumber.json']
+    glueDirs = [ 'src/cucumber/java']
+    featureDirs = [ 'src/cucumber/resources' ]
+    tags = ['~@wip']
+    monochrome = false
+    strict = true
+    dryRun = false
+    ignoreFailures = false
+
+    jvmOptions {
+      maxHeapSize = '512m'
+      environment 'ENV', 'staging'
+      systemProperties writeCucumberEnvironmentProperties.systemProps
+    }
+}
+
+def getSystemProperty(property) {
+    if (System.getProperty(property) != null) {
+        return System.properties[property]
+    } else {
+        return ""
+    }
+}
+
+def getProjectProperty(property, defaultProperty) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultProperty
+    }
+}
+
+def getProjectProperty(property) {
+    return getProjectProperty(property, "")
+}
+
+def messageBrokerConfig() {
+    def host = extractExtraArgument(extraArguments, "server-mb-tcp-broker", 'tcp://mb-1:5672')
+
+    if (getProjectProperty("deploy-environment", "sit") == 'local') {
+        return host
+    } else {
+        def trustStore = '../wso2carbon.jks'
+        def trustStorePassword = extractExtraArgument(extraArguments,'wso2carbon-password','wso2carbon')
+        def trustStoreDetail = "trust_store='" + trustStore + "'&trust_store_password='" + trustStorePassword
+
+        def keyStore = '../wso2carbon.jks'
+        def keyStorePassword = extractExtraArgument(extraArguments,'wso2carbon-password','wso2carbon')
+        def keyStoreDetail = "key_store='" + keyStore + "'&key_store_password='" + keyStorePassword
+
+        def sslConfig = "?ssl='true'&" + trustStoreDetail + "'&" + keyStoreDetail + "'"
+
+        return host + sslConfig;
+    }
+}
+
+def extractExtraArgument(arguments, argumentName, defaultValue) {
+    def value = defaultValue
+    def argument = arguments.find({it.startsWith("-D"+argumentName) || it.startsWith("\"-D"+argumentName)})
+    if (argument != null && argument != '') {
+        def argumentAndValue = new ArrayList(Arrays.asList(argument.split('=')))
+        if (argumentAndValue.size == 2) {
+            value = argumentAndValue.get(1).replace('"', '')
+        }
+    }
+    return value
+}
+
+project.tasks.cucumber.dependsOn writeCucumberEnvironmentProperties
+project.tasks.cucumber.mustRunAfter writeCucumberEnvironmentProperties
+
+task cucumberAcceptanceTestsLocal(dependsOn: [ project.tasks.cucumber, writeCucumberEnvironmentProperties]) { description = "Runs Cucumber Acceptance Tests against locally deployed docker containers" }

@@ -1,0 +1,149 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task copyLocalGradle(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/conf") {
+        include 'local.gradle'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into '$projectDir/../../conf'
+}
+
+task createSettingsGradle() {
+
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        println "Creating settings.gradle...\n"
+
+        def settingsGradle = new File('settings.gradle')
+
+        if (settingsGradle.exists()) {
+            settingsGradle.delete()
+        }
+
+        settingsGradle << "rootProject.name = '$project.ext.projectName'\n"
+
+        createSettingsGradleInclude(settingsGradle)
+        createSettingsGradleCars(settingsGradle)
+
+        settingsGradle << "gradle.ext.deployables = [ \"$project.ext.projectName\", \"$project.ext.projectName-config-#ENVIRONMENT#\"]"
+    }
+}
+
+def createSettingsGradleInclude(settingsGradle) {
+    settingsGradle << "include \"$project.ext.projectName\", \"$project.ext.projectName:deploy\",\n"
+
+    project.ext.components.each { c ->
+        settingsGradle << "    \"$project.ext.projectName-$c\",\n"
+    }
+
+    settingsGradle << "    \"$project.ext.projectName-greg\",\n"
+
+    project.ext.environments.each { e ->
+        settingsGradle << "    \"$project.ext.projectName-config-$e\", \"$project.ext.projectName-config-$e:deploy\""
+
+        if (e != project.ext.environments.last()) {
+            settingsGradle << ",\n"
+        }
+    }
+
+    settingsGradle << "\n\n"
+}
+
+def createSettingsGradleCars(settingsGradle) {
+    settingsGradle << "gradle.ext.cars = [ \"$project.ext.projectName\", "
+
+    project.ext.environments.each { e ->
+        settingsGradle << "\"$project.ext.projectName-config-$e\""
+
+        if (e != project.ext.environments.last()) {
+            settingsGradle << ","
+        }
+    }
+
+    settingsGradle << "]\n\n"
+}
+
+task copyMainBuildGradle(type: Copy) {
+    def applyFlyway = ''
+    def dependsOnManageAndPublishApis = ''
+    def dependsOnFlywayMigrate = ''
+    def dependsOnDeployDataSource = ''
+    def checkDeployment = ''
+
+    if (project.ext.hasFlyway) {
+        applyFlyway = "apply from: 'conf/flyway/flyway.gradle'"
+        dependsOnFlywayMigrate = 'deploySolution.dependsOn flywayMigrate'
+        new File("$projectDir/../database").mkdir()
+        new File("$projectDir/../database/README.txt").write("For git")
+    }
+
+    if (project.ext.hasDatasource) {
+        dependsOnDeployDataSource ='deploySolution.dependsOn deployDataSource'
+    }
+
+    project.ext.components.each { c ->
+
+        if (c != '') {
+            def component = c.toUpperCase()
+            checkDeployment += "check${component}Deployment"
+
+            if (c != project.ext.components.last()) {
+                checkDeployment += ', '
+            }
+        }
+    }
+
+    if (project.ext.hasApi) {
+        dependsOnManageAndPublishApis = 'deploySolution.dependsOn manageAndPublishApis'
+        checkDeployment += ', checkAMDeployment'
+    }
+
+    from ("$projectDir/skeleton/resources/gradle") {
+        include '**/build.gradle'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, applyFlyway: applyFlyway,
+            dependsOnManageAndPublishApis: dependsOnManageAndPublishApis, dependsOnFlywayMigrate: dependsOnFlywayMigrate,
+              dependsOnDeployDataSource: dependsOnDeployDataSource, checkDeployment: checkDeployment])
+    }
+    into '$projectDir/../..'
+}
+
+task createGradles() {
+
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        createGradle(project.ext.projectName, project.ext.components)
+
+        project.ext.environments.each { e ->
+            createGradle("$project.ext.projectName-config-$e", ["greg"])
+        }
+    }
+}
+
+def createGradle(subProjectName, componentList) {
+
+    if (!(new File("$projectDir/../$subProjectName").exists())) {
+        println "Skipping build.gradle for $subProjectName as project does not yet exist..."
+        return
+    }
+
+    println "Create build.gradle for $subProjectName..."
+
+    String template = new File("$projectDir/skeleton/resources/sub.build.gradle").text
+
+    def dependencies = ''
+
+    componentList.each{ c ->
+        dependencies += "':$project.ext.projectName-$c:installLocal'"
+
+        if (c != componentList.last()) {
+            dependencies += ','
+        }
+    }
+
+    def output = template.replaceAll("@dependencies@", dependencies)
+
+    new File("$projectDir/../$subProjectName/build.gradle").write(output)
+}

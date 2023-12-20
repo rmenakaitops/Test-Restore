@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<endpoint xmlns="http://ws.apache.org/ns/synapse" name="@projectName@-v1-endpoint" >
+  <http format="rest" trace="disable" uri-template="https://dss:9448/services/@projectName@-v1-ds.SecureHTTPEndpoint"/>
+</endpoint>

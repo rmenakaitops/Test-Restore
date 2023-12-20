@@ -1,0 +1,118 @@
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+
+}
+
+task checkESBDeployment() {
+    doLast{
+        // def checkDeployStatus = new com.mitra.middleware.testsupport.wso2.CheckDeployStatus()
+        // def checkDeploymentStatus = new com.mitra.middleware.testsupport.wso2.CheckDeploymentStatus()
+
+        println "Checking ESB deployment status for ${rootProject.name} ${project.ext.deployVersion} on ${project.ext.esbWorkerServers}..."
+
+       // def esbServers = new com.mitra.middleware.testsupport.wso2.ServerInformation.ServerInformationBuilder(project.ext.esbWorkerServers,
+         //   project.ext.esbUsername,
+           // project.ext.esbPassword,
+          //  com.mitra.middleware.testsupport.wso2.WSO2Component.ESB,
+             //com.mitra.middleware.testsupport.wso2.CarbonVersion.FOURPOINTFOUR).withSharedResource(project.ext.sharedResource).withTimeout(60).withTriggerBuildTimestamp(getProjectProperty('triggerBuildTimestamp',null)).build()
+
+        //if (checkDeployStatus.isApplicationDeployed(esbServers, rootProject.name, project.ext.deployVersion) == false) {
+           // throw new GradleException(rootProject.name + " has not deployed")
+        //}
+
+        //def kibanaDeploymentCheck = getProjectProperty('kibanaDeploymentCheck', false)
+
+        //if (kibanaDeploymentCheck) {
+          //  println "Checking ESB deployment status for ${rootProject.name} ${project.ext.deployVersion} via Kibana..."
+
+            //if (checkDeploymentStatus.isApplicationDeployed("ESB", rootProject.name, project.ext.deployVersion) == false) {
+              //  println "Application has NOT DEPLOYED to all ESB servers"
+            //}
+        //}
+
+        def environment = getProjectProperty('deploy-environment', 'local')
+        def configProjectName = rootProject.name + "-config-" + environment
+
+        // Added if-statement to ensure this doesn't get triggered for applications that legitimately do not have -config projects
+      //  if (gradle.ext.cars.contains(configProjectName)) {
+
+        //    if (getProjectProperty("ignoreConfigDeploymentCheck", false) == true) {
+          //      println "Not checking ESB config deployment status..."
+            //    return
+           // }
+
+           // println "Checking ESB deployment status for ${configProjectName} ${project.ext.deployVersion} on ${project.ext.esbWorkerServers}..."
+
+       //     if (checkDeployStatus.isApplicationDeployed(esbServers, configProjectName, project.ext.deployVersion) == false) {
+         //       throw new GradleException(configProjectName + " has not deployed")
+         //   }
+
+           // if (kibanaDeploymentCheck) {
+             //   println "Checking ESB deployment status for ${configProjectName} ${project.ext.deployVersion} via Kibana..."
+
+               // if (checkDeploymentStatus.isApplicationDeployed("ESB", configProjectName, project.ext.deployVersion) == false) {
+                 //   println "Application has NOT DEPLOYED to all ESB servers"
+                //}
+           // }
+        //}
+    }
+}
+
+task checkDSSDeployment() {
+    doLast {
+        
+    }
+}
+
+task checkDSSConfigDeployment() {
+    doLast {
+        
+    }  
+}
+
+task checkAMDeployment() {
+    doLast {
+        
+    }
+}
+
+def getItem(items, field) {
+    def theseItems = toList(getProjectProperty(items, ''))
+
+    if (theseItems.size() > field)
+        return theseItems[field]
+
+    return ""
+}
+
+def toList(String value) {
+    return [value]
+}
+
+def toList(value) {
+    value ?: []
+}
+
+def getProjectProperty(property, defaultValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultValue
+    }
+}
+
+task waitForWorkerSync() {
+    doLast {
+        def environment = getProjectProperty('deploy-environment', 'local')
+        if (environment != "local") {
+            println "Waiting for 3 mins to ensure workers have synced"
+            sleep(180 * 1000)
+        }
+    }
+}

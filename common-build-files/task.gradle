@@ -1,0 +1,37 @@
+apply plugin: 'java'
+
+def getProjectProperty(property) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return ''
+    }
+}
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+}
+
+task enableTasks() {
+    doLast {
+       
+    }
+}
+
+task disableTasks() {
+    doLast {
+        if (project.properties['ignoreDisable'] != null && project.ext.deployEnvironment != 'aat') {
+
+            if (project.ext.ignoreDisable.contains(project.ext.deployEnvironment)) {
+                println "Tasks will not be disabled"
+                return
+            }
+        }
+
+        
+    }
+}

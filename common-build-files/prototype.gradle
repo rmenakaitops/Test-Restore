@@ -1,0 +1,171 @@
+import groovy.json.JsonSlurper
+
+ext {
+       managerLoginUri = "${amServer}/publisher/site/blocks/user/login/ajax/login.jag"
+       managerCreateUri = "${amServer}/publisher/site/blocks/item-add/ajax/add.jag"
+       managerPublishUri = "${amServer}/publisher/site/blocks/life-cycles/ajax/life-cycles.jag"
+       managerGetPrototypeUri = "${amServer}/publisher/site/blocks/listing/ajax/item-list.jag"
+       publishProvider = amUsername
+}
+
+
+task managePrototype {
+    doLast {
+        println "Logging in"
+        login()
+
+        if (prototypeExists()) {
+
+            println "Updating existing Prototype ${prototypeName}"
+            save('updateAPI')
+
+        } else {
+
+            println "Creating new Prototype ${prototypeName}"
+            save('addAPI')
+        }
+    }
+
+}
+
+task deployPrototype {
+    doLast {
+        println "Deploying Prototype"
+        deploy()
+    }
+}
+
+deployPrototype.mustRunAfter managePrototype
+
+def deploy() {
+
+    def prototypeConfig = "action=updateStatus&name=${prototypeName}&version=${prototypeVersion}&provider=${publishProvider}&status=PROTOTYPED&publishToGateway=true"
+    def response
+
+    new ByteArrayOutputStream().withStream { os -> 
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure', 
+                '-X', 'POST', 
+                '-b', 'cookies', 
+                "${managerPublishUri}", 
+                '-d', prototypeConfig
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    if (response.error) {
+        println response.message
+        throw new GradleException(response.message)
+    }
+}
+
+def login() {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os -> 
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure', 
+                '-X', 'POST', 
+                '-c', 'cookies', 
+                "${managerLoginUri}", 
+                '-d', "action=login&username=${amUsername}&password=${amPassword}"
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    if (response.error) {
+        println response.message
+        throw new GradleException(response.message)
+    }
+}
+
+def save(action) {
+    
+    def prototypeConfig = "action=${action}&name=${prototypeName}&context=${prototypeContext}&version=${prototypeVersion}&visibility=public&thumbUrl=&description=${prototypeDescription}&tags=${prototypeTags}&endpointType=nonsecured&tiersCollection=Gold,Bronze&http_checked=http&https_checked=https"
+    
+    def endpointConfig = "endpoint_config={\"production_endpoints\": {\"url\":\"${prototypeEndpoint}\", \"config\": null},\"endpoint_type\":\"http\",\"implementation_status\":\"prototyped\"}"
+    def response
+
+    new ByteArrayOutputStream().withStream { os -> 
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure', 
+                '-X', 'POST', 
+                '-b', 'cookies', 
+                "${managerCreateUri}", 
+                '-d', prototypeConfig, 
+                '-d', "swagger=" + getSwagger("${swaggerFile}"), 
+                '-d', endpointConfig
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    if (response.error) {
+        println " Failed in save: " + response.message
+        throw new GradleException(response.message)
+    }
+}
+
+def prototypeExists() {
+    
+    println "Checking if Prototype ${prototypeName} exists"
+    return getPrototype().message == null
+}
+
+def getPrototype() {
+    
+    def response
+
+    new ByteArrayOutputStream().withStream { os -> 
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure', 
+                '-X', 'POST', 
+                '-b', 'cookies', 
+                "${managerGetPrototypeUri}", 
+                '-d', "action=getAPI&name=${prototypeName}&version=${prototypeVersion}&provider=${publishProvider}"
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    return response
+}
+
+def getSwagger(file) {
+    return new File(file).text.replace('\n', '')
+}

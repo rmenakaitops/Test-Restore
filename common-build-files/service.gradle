@@ -1,0 +1,42 @@
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+}
+
+task enableServices() {
+    doLast {
+        if (project.properties['ignoreEnable'] != null) {
+            if (project.ext.ignoreEnable.contains(project.ext.deployEnvironment)) {
+                println "Services will not be enabled"
+                return
+            }
+        }
+
+//        def service = new com.mitra.middleware.testsupport.wso2.Service()
+
+  //      def esbServer = new com.mitra.middleware.testsupport.wso2.ServerInformation.ServerInformationBuilder(project.ext.esbServer,
+  //          project.ext.esbUsername,
+  //          project.ext.esbPassword,
+   //         com.mitra.middleware.testsupport.wso2.WSO2Component.ESB,
+   //         com.mitra.middleware.testsupport.wso2.CarbonVersion.FOURPOINTFOUR).build()
+
+    //    service.enableServicesForProject(esbServer, rootProject.name)
+    }
+}
+
+task disableServices() {
+    doLast {
+        if (project.properties['ignoreDisable'] != null) {
+            if (project.ext.ignoreDisable.contains(project.ext.deployEnvironment)) {
+                println "Services will not be disabled"
+                return
+            }
+        }
+
+    }
+}

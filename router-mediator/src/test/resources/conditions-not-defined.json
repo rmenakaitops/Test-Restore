@@ -1,0 +1,26 @@
+[
+  {
+    "active": true,
+    "xpathRule": "//breakfast_menu/food/price/text()"
+  },
+  {
+    "active": false,
+    "xpathRule": "//breakfast_menu/food/price/text()",
+    "conditions": [
+      {
+        "condition": "650",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      },
+      {
+        "condition": "10",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,29 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task copyGitIgnore(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/git") {
+        include 'gitignore'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into '$projectDir/../..'
+    rename "gitignore", ".gitignore"
+}
+
+task copyTrustStore(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/truststore") {
+        include 'wso2carbon.jks'
+    }
+    into '$projectDir/../..'
+}
+
+task copyReadme(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/readme") {
+        include 'README.md'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into '$projectDir/../..'
+}
+

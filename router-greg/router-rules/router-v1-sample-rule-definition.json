@@ -1,0 +1,52 @@
+[
+  {
+    "active": true,
+    "xpathRule": "//INVENTORY_RECEIPT_IFD/CTRL_SEG/INVENTORY_RECEIPT_IFD_SEG[1]/SITCOD/text()",
+    "conditions": [
+      {
+        "condition": "9246",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel2-sequence",
+          "router-v1-sample-channel3-sequence"
+        ]
+      },
+      {
+        "condition": "1096",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel4-sequence"	 
+        ]
+      },
+      {
+        "condition": "1097",
+        "sequences": [
+          "router-v1-sample-channel4-sequence",
+          "router-v1-sample-channel5-sequence"	 
+        ]
+      }
+    ]
+  },
+  {
+    "active": false,
+    "xpathRule": "//INVENTORY_RECEIPT_IFD/CTRL_SEG/INVENTORY_RECEIPT_IFD_SEG[1]/SITCOD/text()",
+    "conditions": [
+      {
+        "condition": "9246",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel2-sequence",
+	  "router-v1-sample-channel3-sequence"
+        ]
+      },
+      {
+        "condition": "1096",
+        "sequences": [
+          "router-v1-sample-channel1-sequence",
+          "router-v1-sample-channel2-sequence"
+	]
+      }
+    ]
+  }
+]
+

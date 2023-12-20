@@ -1,0 +1,94 @@
+def getProjectProperty(property, defaultPropertyValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
+def deployEnvironment = getProjectProperty("deploy-environment", "local")
+
+configure(subprojects.findAll({ (it.parent.name.endsWith('-config-' + deployEnvironment) || !it.parent.name.contains('-config-')) && it.name == "deploy"} ))  {
+
+    configurations {
+        carDeployable { transitive = false }
+    }
+
+    dependencies {
+        def artifact = ""
+
+        if (project.ext.pipelineStage == '') {
+            artifact = "${rootProject.group}:${parent.name}:${project.ext.deployVersion}@car"
+        } else {
+
+            artifact = "${rootProject.group}:${parent.name}:${project.ext.snapshotVersion}@car;pipeline.stage+=" + project.ext.pipelineStage
+
+            if (project.hasProperty("rollback")) {
+                artifact = "${rootProject.group}:${parent.name}:+@car"
+            }
+
+        }
+        carDeployable (artifact)
+    }
+
+    task ensureSnapshots(type: Copy) {
+        into '../target'
+        from configurations.carDeployable
+        rename { String fileName ->
+            fileName.replace(';pipeline.stage+=' + project.ext.pipelineStage,'').replace('-'+project.ext.deployVersion,'_'+project.ext.deployMajorVersion)
+        }
+    }
+}
+
+configure(subprojects.findAll( { gradle.deployables.collect{ "$it".replace("#ENVIRONMENT#", deployEnvironment) }.contains(it.name) })) {
+
+    task updateVersionNumberForDeployment(type: Exec) {
+        description = 'Updates POM version number for deployment'
+
+        def command = [ 'mvn',  'versions:set', "-s$projectDir/../settings.xml", "-DnewVersion="+project.ext.deployMajorVersion ]
+
+        commandLine command
+    }
+
+    task renameCar() {
+        doLast {
+            def car = new File("$projectDir/target/"+project.name+"_"+project.deployVersion+".car")
+
+            if (car.exists()) {
+                car.renameTo("$projectDir/target/"+project.name+"_"+project.deployMajorVersion+".car")
+            }
+        }
+    }
+
+    task deployLocal(type: Exec, dependsOn: updateVersionNumberForDeployment ) {
+        description = 'Deploys CAR file directly in local WSO2 environment'
+        commandLine 'mvn', 'org.wso2.maven:maven-car-deploy-plugin:deploy-car', "-s$projectDir/../settings.xml"
+    }
+
+    task deployLocalDirty(type: Exec) {
+        description = 'Deploys CAR file directly in local WSO2 environment'
+        commandLine 'mvn', 'org.wso2.maven:maven-car-deploy-plugin:deploy-car', '-Pdeploy-local', "-s$projectDir/../settings.xml"
+    }
+
+    task deployRemote(type: Exec, dependsOn: updateVersionNumberForDeployment) {
+        description = 'Deploys prebuilt CAR file in AWS Development WSO2 environment'
+
+        def command = [ 'mvn',  'org.wso2.maven:maven-car-deploy-plugin:deploy-car', '-Pdeploy-remote', "-s$projectDir/../settings.xml" ]
+        commandLine command + project.ext.extraArguments
+        println "Remote deployment of " + project.name + " - " + commandLine
+    }
+
+    gradle.afterProject {project, projectState ->
+        if (project == it && project.tasks.findAll { it.name == 'buildCar' }) {
+          deployLocal.dependsOn(project.buildCar)
+	        deployLocal.dependsOn(renameCar)
+	        deployLocalDirty.dependsOn(renameCar)
+          updateVersionNumberForDeployment.mustRunAfter buildCar
+          renameCar.mustRunAfter updateVersionNumberForDeployment
+        }
+    }
+}
+
+apply from: 'common-build-files/secureVault.gradle'
+apply from: 'common-build-files/task.gradle'
+apply from: 'common-build-files/service.gradle'

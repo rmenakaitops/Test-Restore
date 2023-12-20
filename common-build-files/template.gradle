@@ -1,0 +1,21 @@
+def cloneSharedResources() {
+
+    if (!File.exists("shared-resources")) {
+        new ByteArrayOutputStream().withStream { os ->
+
+            def result = exec {
+
+                executable = 'git'
+                args = [
+                    'clone',
+                    ''
+                ]
+                standardOutput = os
+            }
+
+            println os.toString()
+        }
+    }
+}
+
+

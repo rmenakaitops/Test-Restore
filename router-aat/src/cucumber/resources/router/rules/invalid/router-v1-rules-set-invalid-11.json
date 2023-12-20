@@ -1,0 +1,16 @@
+[
+	{
+		"active": true,
+		"xpathRule": "(//PONUM)[1]//node()",
+		"conditions": [
+			{
+				"condition": //INVENTORY_RECEIP,
+				"sequences": [
+					"router-v1-sample-channel1-sequence",
+					"router-v1-sample-channel2-sequence",
+					"router-v1-sample-channel3-sequence"
+				]
+			}
+		]
+	}
+]

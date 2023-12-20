@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<template name="router-v1-template" xmlns="http://ws.apache.org/ns/synapse">
+    <parameter name="routerRuleDefinitionPath"/>
+    <parameter name="routerOnErrorSequence"/>
+    <parameter name="routerIntergationVersion"/>
+    <parameter name="routerIntegrationReference"/>
+    <sequence>
+        <sequence key="router-v1-route-messages-sequence"/>
+    </sequence>
+</template>

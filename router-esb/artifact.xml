@@ -1,0 +1,44 @@
+<artifacts>
+  <artifact name="router-v1-sample-api" groupId="com.mitra.middleware.router-esb.api" version="1.0.2" type="synapse/api" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/api/router-v1-sample-api.xml</file>
+  </artifact>
+  <artifact name="router-v1-handle-fault-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-handle-fault-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-route-messages-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-route-messages-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-api-response-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-api-response-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-channel1-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-channel1-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-channel2-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-channel2-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-channel3-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-channel3-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-error-message-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-error-message-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-template" groupId="com.mitra.middleware.router-esb.template" version="1.0.2" type="synapse/sequenceTemplate" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/templates/router-v1-template.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-ep-channel1-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-ep-channel1-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-ep-channel2-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-ep-channel2-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-mock-api" groupId="com.mitra.middleware.router-esb.api" version="1.0.2" type="synapse/api" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/api/router-v1-sample-mock-api.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-route-messages-perf-sequence" groupId="com.mitra.middleware.router-esb.sequence" version="1.0.2" type="synapse/sequence" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/sequences/router-v1-sample-route-messages-perf-sequence.xml</file>
+  </artifact>
+  <artifact name="router-v1-sample-perf-template" groupId="com.mitra.middleware.router-esb.template" version="1.0.2" type="synapse/sequenceTemplate" serverRole="EnterpriseServiceBus">
+    <file>src/main/synapse-config/templates/router-v1-sample-perf-template.xml</file>
+  </artifact>
+</artifacts>

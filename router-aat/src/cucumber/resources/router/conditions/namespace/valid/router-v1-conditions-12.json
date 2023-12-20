@@ -1,0 +1,31 @@
+[
+   {
+      "condition":"12.0",
+      "sequences":[
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence",
+         "router-v1-sample-channel3-sequence"
+      ]
+   },
+   {
+      "condition": "14.0",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    },
+   {
+      "condition": "16.0",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    },
+   {
+      "condition": "8",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    }
+]

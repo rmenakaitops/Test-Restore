@@ -1,0 +1,127 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.io.FileType
+def gregDestination = '$projectDir/../../' + project.ext.projectName + '-greg'
+
+task copyGreg(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/stubs/projects/greg") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into gregDestination
+
+    doLast {
+        enrichPlugin("$projectDir/../" + project.ext.projectName + '-greg',
+          "$projectDir/skeleton/resources/stubs/poms/greg/pom.xml",
+          'wso2-general-project-plugin')
+        renameFiles("$projectDir/../" + project.ext.projectName + '-greg',project.ext.projectName)
+    }
+}
+
+def esbDestination = '$projectDir/../../' + project.ext.projectName + '-esb'
+
+task copyESB(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/stubs/projects/esb") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into esbDestination
+
+    doLast {
+        enrichPlugin("$projectDir/../" + project.ext.projectName + '-esb',
+          "$projectDir/skeleton/resources/stubs/poms/esb/pom.xml",
+          'wso2-esb-api-plugin')
+	enrichPlugin("$projectDir/../" + project.ext.projectName + '-esb',
+          "$projectDir/skeleton/resources/stubs/poms/esb/pom.xml",
+          'naming-standards-validator')
+	enrichPlugin("$projectDir/../" + project.ext.projectName + '-esb',
+          "$projectDir/skeleton/resources/stubs/poms/esb/pom.xml",
+          'synapse-validator')
+
+	enrichPluginRepository("$projectDir/../" + project.ext.projectName + '-esb',
+          "$projectDir/skeleton/resources/stubs/poms/esb/pom.xml",
+          'tp-artifactory-releases')
+
+        renameFiles("$projectDir/../" + project.ext.projectName + '-esb',project.ext.projectName)
+    }
+}
+
+def dssDestination = '$projectDir/../../' + project.ext.projectName + '-dss'
+
+task copyDSS(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/stubs/projects/dss") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into dssDestination
+
+    doLast {
+        enrichPlugin("$projectDir/../" + project.ext.projectName + '-dss',
+          "$projectDir/skeleton/resources/stubs/poms/dss/pom.xml",
+          'maven-dataservice-plugin')
+        renameFiles("$projectDir/../" + project.ext.projectName + '-dss',project.ext.projectName)
+    }
+}
+
+def enrichPlugin(destination, template, pluginToAdd) {
+    println "Enrich plugins in pom.xml for $destination..."
+
+    def xmlFile = "$destination/pom.xml"
+    def xml = new XmlParser().parse(xmlFile)
+
+    deletePlugin(xml.build.plugins, pluginToAdd)
+
+    def xmlTemplate = new XmlParser().parse(template)
+    xml.build.plugins[0].append(xmlTemplate.build.plugins.plugin.find { it.artifactId.text() == pluginToAdd }.clone())
+
+    def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+    nodePrinter.preserveWhitespace = true
+    nodePrinter.print(xml)
+}
+
+def enrichPluginRepository(destination, template, repositoryToAdd) {
+    println "Enrich plugin repository in pom.xml for $destination..."
+
+    def xmlFile = "$destination/pom.xml"
+    def xml = new XmlParser().parse(xmlFile)
+
+    deletePluginRepository(xml.pluginRepositories, repositoryToAdd)
+
+    def xmlTemplate = new XmlParser().parse(template)
+    xml.pluginRepositories[0].append(xmlTemplate.pluginRepositories.pluginRepository.find { it.id.text() == repositoryToAdd }.clone())
+
+    def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+    nodePrinter.preserveWhitespace = true
+    nodePrinter.print(xml)
+}
+
+def renameFiles(destination, projectName) {
+    def list = []
+
+    def dir = new File(destination)
+    dir.eachFileRecurse (FileType.FILES) { file ->
+        if (file.path.contains("@projectName@")) {
+            new File(file.path).renameTo(new File(file.path.replace("@projectName@",projectName)))
+        }
+    }
+}
+
+def deletePlugin(plugins, name) {
+    def plugin = plugins.plugin.find { it.artifactId.text() == name }
+    if (plugin != null) {
+        def parent = plugin.parent()
+        parent.remove(plugin)
+        println "Removing plugin $name..."
+    }
+}
+
+def deletePluginRepository(pluginRepositories, name) {
+    def repository = pluginRepositories.pluginRepository.find { it.id.text() == name }
+    if (repository != null) {
+        def parent = repository.parent()
+        parent.remove(repository)
+        println "Removing plugin repository $name..."
+    }
+}

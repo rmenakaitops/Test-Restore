@@ -1,0 +1,145 @@
+configure(subprojects.findAll( { it.name != "deploy" } )) {
+    task installLocal(type: Exec) {
+        doFirst {
+            println "Installing $project.name locally as part of build..."
+
+            println "Updating version number in artifact.xml..."
+
+            def artifactsXmlName = "$projectDir/artifact.xml"
+            def artifactsXml = new File(artifactsXmlName)
+
+            if (artifactsXml.exists()) {
+                def artifacts = new XmlParser().parse(artifactsXmlName)
+
+                artifacts.artifact.@version = project.ext.releaseVersion
+
+                def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(artifactsXmlName)))
+                nodePrinter.preserveWhitespace = true
+                nodePrinter.print(artifacts)
+            }
+
+            println "Updating version number in pom.xml..."
+
+            def pomXmlName = "$projectDir/pom.xml"
+            def pomXmlFile = new File(pomXmlName)
+
+            if (pomXmlFile.exists()) {
+                def pomXml = new XmlParser().parse(pomXmlName)
+
+                pomXml.version[0].value = project.ext.releaseVersion
+
+                def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(pomXmlName)))
+                nodePrinter.preserveWhitespace = true
+                nodePrinter.print(pomXml)
+            }
+        }
+
+	commandLine 'mvn', 'clean', 'install'
+    }
+}
+
+def carsToUpload
+
+if (System.properties["specificProject"] != null) {
+    carsToUpload = []
+    def projects = System.properties["specificProject"].split(',')
+    if (projects.sum()) {
+        projects.each { project -> carsToUpload.push(project) }
+    }
+} else {
+    carsToUpload = gradle.ext.cars
+
+    if (System.properties["excludeProject"] != null) {
+        carsToUpload = carsToUpload.findAll { it != System.properties["excludeProject"] }
+    }
+}
+
+def configuredSubProjects = false
+
+configure(subprojects.findAll( { carsToUpload.contains(it.name) })) {
+
+    configuredSubProjects = true
+
+    task updateVersionNumber(type: Exec) {
+        description = 'Updates POM version number'
+
+        doFirst {
+            println "Update dependency versions for local components..."
+
+            def pomXmlName = "$projectDir/pom.xml"
+            def pomXml = new File(pomXmlName)
+
+            if (pomXml.exists()) {
+
+                def pom = new XmlParser().parse(pomXmlName)
+
+                pom.dependencies.dependency.each { d -> 
+                    d.version[0].value = project.ext.releaseVersion
+                }
+
+                def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(pomXmlName)))
+                nodePrinter.preserveWhitespace = true
+                nodePrinter.print(pom)
+            }
+        }
+
+        def command = [ 'mvn',  'versions:set', "-s$projectDir/../settings.xml", "-DnewVersion="+project.ext.deployVersion ]
+
+        commandLine command
+    }
+
+    task uploadToArtifactory(type: Exec) {
+        description = 'Deploys CAR file to artifactory'
+
+        def command = [ 'mvn',  'deploy', '-Pdeploy-artifactory', "-s$projectDir/../settings.xml", "-Dartifactory-username="+project.ext.artifactoryUsername, "-Dartifactory-password="+project.ext.artifactoryPassword, "-Dartifactory-url="+project.ext.artifactoryUrl, "-Dartifactory-repo-key="+project.ext.artifactoryRepoKey ]
+
+        commandLine command
+    }
+
+    task generateDummyTestResults {
+        doLast {
+            def dummyPath = new File("$projectDir/target/surefire-reports")
+
+            if (!dummyPath.exists()) {
+                dummyPath.mkdirs()
+            }
+
+            def results = new File("$projectDir/target/surefire-reports/TEST-DUMMY.xml")
+            results.createNewFile()
+            results.write('<?xml version="1.0" encoding="UTF-8"?><testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report.xsd" name="default.test" time="0.001" tests="1" errors="0" skipped="0" failures="0"><testcase classname="default.test" name="test_gen:1" time="0.000001" /></testsuite>')
+        }
+    }
+
+    task generateEmptySourceDirectory {
+        doLast {
+            def sourcePath = new File("$projectDir/src/main/java")
+
+            if (!sourcePath.exists()) {
+                sourcePath.mkdirs()
+            }
+
+            def resourcePath = new File("$projectDir/src/main/resources")
+
+            if (!resourcePath.exists()) {
+                resourcePath.mkdirs()
+            }
+        }
+    }
+
+    gradle.afterProject {project, projectState ->
+        if (project == it && project.tasks.findAll { it.name == 'buildCar' }) {
+          uploadToArtifactory.dependsOn(project.buildCar)
+          project.buildCar.dependsOn(updateVersionNumber)
+          project.buildCar.dependsOn(generateEmptySourceDirectory)
+          project.buildCar.finalizedBy generateDummyTestResults
+        }
+    }
+}
+
+if (!configuredSubProjects) {
+    task uploadToArtifactory() {
+        doLast{}
+    }
+}
+
+apply from: 'common-build-files/removeCar.gradle'

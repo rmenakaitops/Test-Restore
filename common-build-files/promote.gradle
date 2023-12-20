@@ -1,0 +1,174 @@
+import groovy.json.JsonSlurper
+
+def getProjectProperty(property) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return ''
+    }
+}
+
+def executeCurlPost(url, credentials, data, ignoreResponse) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '-u', credentials,
+                '--insecure',
+                '-X', 'POST',
+                '-H', 'Content-Type: application/json',
+                "${url}",
+                '-d', data
+            ]
+            standardOutput = os
+        }
+
+        if (ignoreResponse) {
+            println os.toString()
+        } else {
+            response = new JsonSlurper().parseText(os.toString())
+        }
+    }
+
+    if (!ignoreResponse && response.errors != null && response.errors[0].status >= 400) {
+        println response.errors[0].message
+        throw new GradleException(response[0].errors.message)
+    }
+}
+
+def executeCurlGet(url) {
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+
+        def result = exec {
+
+            executable = 'curl'
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure',
+                "${url}"
+            ]
+            standardOutput = os
+        }
+
+        response = new JsonSlurper().parseText(os.toString())
+    }
+
+    return response
+}
+
+def carsToPromote
+
+if (System.properties["specificProject"] != null) {
+    carsToPromote = []
+    def projects = System.properties["specificProject"].split(',')
+    if (projects.sum()) {
+        projects.each { project -> carsToPromote.push(project) }
+    }
+} else {
+    if (gradle.hasProperty("cars")) {
+        carsToPromote = gradle.ext.cars
+    }
+
+    if (System.properties["excludeProject"] != null) {
+        carsToPromote = carsToPromote.findAll { it != System.properties["excludeProject"] }
+    }
+}
+
+def subprojectToPromote = false
+
+configure(subprojects.findAll( { carsToPromote.contains(it.name) })) {
+
+    subprojectToPromote = true
+
+    task promote() {
+        doLast {
+            def status = getProjectProperty("pipeline-stage")
+
+            def request = "{ \"status\": \""+status+"\", " +  // new build status (any string)
+                        "  \"properties\": { " + // a list of properties to attach to the build's artifacts (regardless if "targetRepo" is used).
+                        "      \"pipeline.stage\": [\""+status+"\"] " +
+                        "  }, " +
+                        "  \"failFast\": \"true\" " + // fail and abort the operation upon receiving an error. Default: true
+                        "}"
+
+            def build = rootProject.group+"-"+project.name+"-"+project.ext.snapshotVersion
+
+            executeCurlPost(project.ext.artifactoryUrl+"/api/build/promote/"+build+"/"+project.ext.buildNumber,
+                project.ext.artifactoryUsername+':'+project.ext.artifactoryPassword,
+                request,
+                false)
+        }
+    }
+
+    task checkIfVersionReleased() {
+        doLast {
+            def response = executeCurlGet(project.ext.artifactoryUrl+"/api/search/versions?g="+rootProject.group+"&a="+project.name+"&repos="+project.ext.releaseRepository)
+
+            if (response.errors == null) {
+
+                response.results.each {
+                    if (it.version == project.ext.releaseVersion) {
+                        throw new GradleException("Release version ${project.ext.releaseVersion} of ${rootProject.group}.${project.name} already exists. Please update version.")
+                    }
+                }
+            }
+        }
+    }
+
+    task promoteToSnapshot() {
+        doLast {
+            def request = "{ \"status\": \""+status+"\", " +  // new build status (any string)
+                        "  \"targetRepo\" : \"" + project.ext.targetRepository + "\", " +
+                        "  \"properties\": { " + // a list of properties to attach to the build's artifacts (regardless if "targetRepo" is used).
+                        "      \"pipeline.stage\": [\""+status+"\"] " +
+                        "  }, " +
+                        "  \"failFast\": \"true\" " + // fail and abort the operation upon receiving an error. Default: true
+                        "}"
+
+            def build = rootProject.group+"-"+project.name+"-"+project.ext.snapshotVersion
+
+            executeCurlPost(project.ext.artifactoryUrl+"/api/build/promote/"+build+"/"+project.ext.buildNumber,
+                project.ext.artifactoryUsername+':'+project.ext.artifactoryPassword,
+                request,
+                false)
+        }
+    }
+
+    promoteToSnapshot.dependsOn checkIfVersionReleased
+
+    task promoteToRelease() {
+        doLast {
+            def build = rootProject.group+"-"+project.name+"-"+project.ext.snapshotVersion
+
+            executeCurlPost(project.ext.artifactoryUrl+"/api/plugins/build/promote/snapshotToRelease/"+build+"/"+project.ext.buildNumber+"?params=snapExp=d{14}|targetRepository="+project.ext.targetRepository,
+                project.ext.artifactoryUsername+':'+project.ext.artifactoryPassword,
+                "",
+                true)
+        }
+    }
+}
+
+if (subprojectToPromote == false) {
+  task promote {
+      doLast{}
+  }
+
+  task promoteToSnapshot {
+      doLast{}
+  }
+
+  task promoteToRelease {
+      doLast{}
+  }
+}

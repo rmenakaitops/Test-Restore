@@ -1,0 +1,162 @@
+import com.mitra.gradle.plugin.task.GenerateLocalPropertiesTask
+import com.mitra.mft.ImportItemTask
+
+buildscript {
+    dependencies {
+        repositories {
+            jcenter()
+            mavenLocal()
+            maven { url "https://plugins.gradle.org/m2/" }
+        }
+
+        classpath 'com.github.samueltbrown:gradle-cucumber-plugin:0.9'
+        classpath 'com.jayway.awaitility:awaitility:1.7.0'
+        classpath 'com.mitra.gradle.plugins:yaml-plugin:2.0.1'
+        classpath 'com.mitra.gradle:git-gradle-plugin:0.0.12'
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4.6.0"
+    }
+}
+
+mft {
+   hostUrl = getProjectProperty('mft-url',System.getenv('MFT_HOST'))
+   user = getProjectProperty('mft-user',System.getenv('MFT_USER'))
+   password = getProjectProperty('mft-password',System.getenv('MFT_PASSWORD'))
+   keystore = getProjectProperty('mft-keystore',System.getenv('MFT_KEYSTORE'))
+   keystorePassword = getProjectProperty('mft-keystorePassword',System.getenv('MFT_KEYSTORE_PASSWORD'))
+}
+
+def localItemsTemplateDirectoryPath = './templates'
+def localItemsTargetDirectoryPath = './build/target/'
+def localItemsPropertiesDirectoryPath = './build/properties/'
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId project.name
+            if (project.hasProperty('env')) {
+                version env + '-' + version
+            } else {
+                version version
+            }
+            artifact(file(localItemsTargetDirectoryPath + project.name + '-' + version + '.zip'))
+        }
+    }
+}
+
+def devEnvironmentsList() {
+    return ['dev', 'sit']
+}
+
+def setItemStatusToActive(itemName) {
+    ant.replace(file: 'config/' + itemName + '.yaml', token: 'status: I', value: 'status: A')
+}
+
+def setItemStatusToInactive(itemName) {
+    ant.replace(file: 'config/' + itemName + '.yaml', token: 'status: A', value: 'status: I')
+}
+
+task loadProperties {
+    doLast {
+        def Properties properties = new Properties()
+        properties.load(new FileInputStream('build/properties/local.properties'))
+        project.ext['mft.items'] = properties['mft.items']
+    }
+}
+
+task generateProperties {
+    doLast {
+        def items = project.ext['mft.items'].split(',')
+        items.each { item ->
+            GenerateLocalPropertiesTask task = project.task(item + '-generateProperties', type: GenerateLocalPropertiesTask)
+            task.inputYamlPath = 'config/' + item + '.yaml'
+            task.outputPropertiesPath = localItemsPropertiesDirectoryPath + item + '.properties'
+            task.execute()
+        }
+    }
+}
+
+task generateMftProperties {
+    doLast {
+        GenerateLocalPropertiesTask task = project.task('mft-main-generateProperties', type: GenerateLocalPropertiesTask)
+        task.inputYamlPath = 'config/mftproperties.yaml'
+        task.outputPropertiesPath = localItemsPropertiesDirectoryPath + 'local.properties'
+        task.execute()
+    }
+}
+
+task importItems {
+    doLast {
+        def items = project.ext['mft.items'].split(',')
+        items.each { item ->
+            ImportItemTask task = project.task(item + 'importItem', type: ImportItemTask)
+            task.itemName = item
+            task.execute()
+        }
+    }
+}
+
+task activateItems {
+    doLast {
+        def environment = getProjectProperty('env', 'dev')
+        if (!devEnvironmentsList().contains(environment)) {
+            return
+        }
+        def items = project.ext['mft.items'].split(',')
+        items.each { item ->
+            def itemName = item.toLowerCase()
+            if (itemName.contains('monitor') || itemName.contains('schedule') || itemName.contains('trigger')) {
+                setItemStatusToActive(item)
+                ImportItemTask task = project.task(item + 'importItem', type: ImportItemTask)
+                task.itemName = item
+                task.execute()
+            }
+        }        
+    }
+}
+
+task deactivateItems {
+    doLast {
+        def environment = getProjectProperty('env', 'dev')
+        if (!devEnvironmentsList().contains(environment)) {
+            return
+        }
+        def items = project.ext['mft.items'].split(',')
+        items.each { item ->
+            def itemName = item.toLowerCase()
+            if (itemName.contains('monitor') || itemName.contains('schedule') || itemName.contains('trigger')) {
+                setItemStatusToInactive(item)
+                ImportItemTask task = project.task(item + 'importItem', type: ImportItemTask)
+                task.itemName = item
+                task.execute()
+            }
+        }        
+    }
+}
+
+task zipAllJobs(type: Zip) {
+    from(localItemsTemplateDirectoryPath)
+    include '*.template'
+    if (project.hasProperty('env')) {
+        archiveName project.name + '-' + env + '-' + version + '.zip'
+    } else {
+        archiveName project.name + '-' + version + '.zip'
+    }
+    destinationDir file(localItemsTargetDirectoryPath)
+}
+
+task deployProject(type: Exec) {
+    def environment = getProjectProperty('env', 'dev')
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine "cmd", "/c", "gradlew", "clean", "build", "generateMftProperties", "loadProperties", "generateProperties", "importItems", "-Penv=" + environment
+    } else {
+        commandLine "./gradlew", "clean", "build", "generateMftProperties", "loadProperties", "generateProperties", "importItems", "-Penv=" + environment
+    }
+}
+
+task cucumberSIT(type: Exec) {
+    if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+        commandLine "cmd", "/c", "gradlew", "clean", "build", "cucumber", "-Penv=local-sit", "-PcucumberTags=~@wip,@Sit"
+    } else {
+        commandLine "./gradlew", "clean", "build", "cucumber", "-Penv=local-sit", "-PcucumberTags=~@wip,@Sit"
+    }
+}

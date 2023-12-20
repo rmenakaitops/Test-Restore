@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="router-v1-handle-fault-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <property name="sequenceName" scope="default" type="STRING" value="router-v1-handle-fault-sequence"/>
+    <call-template description="Call: logger-v3-template" target="logger-v3-template">
+        <with-param name="logLevel" value="ERROR"/>
+        <with-param name="integrationReference" value="{$ctx:interfaceReferance}"/>
+        <with-param name="integrationVersion" value="{$ctx:interfaceVersion}"/>
+        <with-param name="sequenceName" value="{$ctx:sequenceName}"/>
+         <with-param name="unhandledError" value="{$ctx:routerUnhandledError}"/>
+        <with-param name="includeMessageBody" value="false"/>
+        <with-param name="logMessage" value="{$ctx:routerErrorMessage}"/>
+        <with-param name="errorReason" value="{$ctx:routerErrorReason}"/>
+    </call-template>
+    <filter description="Validate: routerOnErrorSequence is null or not" xpath="boolean($func:routerOnErrorSequence)">
+        <then>
+            <sequence key="{$func:routerOnErrorSequence}"/>
+        </then>
+        <else/>
+    </filter>
+    <drop/>
+</sequence>

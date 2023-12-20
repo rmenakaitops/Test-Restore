@@ -1,0 +1,14 @@
+[
+   {
+      "condition":"#123#",
+      "sequences":[
+         "router-v1-sample-channel1-sequence"
+      ]
+   },
+   {
+      "condition":"#456#",
+      "sequences":[
+         "router-v1-sample-channel2-sequence"
+      ]
+   }
+]

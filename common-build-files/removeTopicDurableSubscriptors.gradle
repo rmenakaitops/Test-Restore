@@ -1,0 +1,299 @@
+import groovy.util.XmlSlurper
+
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+}
+
+task removeTopicDurableSubscriptors() {
+    doLast {
+        def environment = getProjectProperty('deploy-environment', 'local')
+
+        def jndiDictionary = ['DefaultNoSSL1': 'mbDefault1Broker',
+                          'DefaultSSL1': 'mbDefault1Broker',
+                          'DefaultNoSSL2': 'mbDefault2Broker',
+                          'DefaultSSL2': 'mbDefault2Broker',
+                          'DefaultNoSSL1Queue': 'mbDefault1Broker',
+                          'DefaultSSL1Queue': 'mbDefault1Broker',
+                          'DefaultNoSSL2Queue': 'mbDefault2Broker',
+                          'DefaultSSL2Queue': 'mbDefault2Broker',
+                          'DefaultNoSSL1Topic': 'mbDefault1Broker',
+                          'DefaultSSL1Topic': 'mbDefault1Broker',
+                          'DefaultNoSSL2Topic': 'mbDefault2Broker',
+                          'DefaultSSL2Topic': 'mbDefault2Broker',
+                          'RealtimeANoSSL1': 'mbRta1Broker',
+                          'RealtimeASSL1': 'mbRta1Broker',
+                          'RealtimeANoSSL2': 'mbRta2Broker',
+                          'RealtimeASSL2': 'mbRta2Broker',
+                          'RealtimeANoSSL1Queue': 'mbRta1Broker',
+                          'RealtimeASSL1Queue': 'mbRta1Broker',
+                          'RealtimeANoSSL2Queue': 'mbRta2Broker',
+                          'RealtimeASSL2Queue': 'mbRta2Broker',
+                          'RealtimeANoSSL1Topic': 'mbRta1Broker',
+                          'RealtimeASSL1Topic': 'mbRta1Broker',
+                          'RealtimeANoSSL2Topic': 'mbRta2Broker',
+                          'RealtimeASSL2Topic': 'mbRta2Broker',
+                          'RealtimeBNoSSL1': 'mbRtb1Broker',
+                          'RealtimeBSSL1': 'mbRtb1Broker',
+                          'RealtimeBNoSSL2': 'mbRtb2Broker',
+                          'RealtimeBSSL2': 'mbRtb2Broker',
+                          'RealtimeBNoSSL1Queue': 'mbRtb1Broker',
+                          'RealtimeBSSL1Queue': 'mbRtb1Broker',
+                          'RealtimeBNoSSL2Queue': 'mbRtb2Broker',
+                          'RealtimeBSSL2Queue': 'mbRtb2Broker',
+                          'RealtimeBNoSSL1Topic': 'mbRtb1Broker',
+                          'RealtimeBSSL1Topic': 'mbRtb1Broker',
+                          'RealtimeBNoSSL2Topic': 'mbRtb2Broker',
+                          'RealtimeBSSL2Topic': 'mbRtb2Broker',
+                          'BatchNoSSL1': 'mbBat1Broker',
+                          'BatchSSL1': 'mbBat1Broker',
+                          'BatchNoSSL2': 'mbBat2Broker',
+                          'BatchSSL2': 'mbBat2Broker',
+                          'BatchNoSSL1Queue': 'mbBat1Broker',
+                          'BatchSSL1Queue': 'mbBat1Broker',
+                          'BatchNoSSL2Queue': 'mbBat2Broker',
+                          'BatchSSL2Queue': 'mbBat2Broker',
+                          'BatchNoSSL1Topic': 'mbBat1Broker',
+                          'BatchSSL1Topic': 'mbBat1Broker',
+                          'BatchNoSSL2Topic': 'mbBat2Broker',
+                          'BatchSSL2Topic': 'mbBat2Broker',
+                          'QueueConnectionFactory': 'mbDefault1Broker',
+                          'QueueSSLConnectionFactory': 'mbDefault1Broker',
+                          'TopicConnectionFactory': 'mbDefault1Broker',
+                          'TopicNoSSLConnectionFactory': 'mbDefault1Broker',
+                          'ConnectionFactory': 'mbDefault1Broker']
+
+        def listOfTopicSubscribers = getTopicDurableSubscriptionList(environment)
+
+        if (listOfTopicSubscribers.size() == 0) {
+
+            println "No topic durable subscriptions in ${rootProject.name}"
+
+        } else {
+
+            println "${listOfTopicSubscribers.size()} topic durable subscriptors found. Will be removed"
+
+            waitForAppRemoval()
+
+            listOfTopicSubscribers.each {
+
+                def subscriptionId = 'carbon:' + it.get("durableSubscriberName")
+                def mbBroker = jndiDictionary.get(it.get("mbCluster"))
+
+                deleteTopicSubscription(it.get("topicName"),subscriptionId,mbBroker)
+
+            }
+
+        }
+    }
+}
+
+def waitForAppRemoval() {
+    def environment = getProjectProperty('deploy-environment', 'local')
+    if (environment != "local") {
+        println "Waiting for 1 min to ensure the CarbonApp have been removed from all the workers"
+        sleep(60 * 1000)
+    }
+    if (environment == "local") {
+        println "Waiting for 30 seconds to ensure the CarbonApp have been removed"
+        sleep(30 * 1000)
+    }
+}
+
+def getTopicDurableSubscriptionList(environment) {
+
+    println "Getting list of topic durable subscriptions in ${rootProject.name}"
+
+    def listOfTopicSubscribers = []
+
+    def listOfInboundEndpoints = findInboundEndpoints()
+
+    if (listOfInboundEndpoints.size() != 0) {
+
+        def listOfDeployedInboundEndpoints = filterDeployedInboundEndpoints(listOfInboundEndpoints,environment)
+
+        if (listOfDeployedInboundEndpoints.size() != 0) {
+
+            logger.info("Analysing deployed inbound-endpoints:")
+
+            listOfDeployedInboundEndpoints.each {
+
+                def inboundEndpointFile = new File(rootProject.name + '-esb' + File.separator + it['filePath'])
+
+                logger.info("- Inbound endpoint: " + it['artifactId'])
+
+                if (inboundEndpointFile.exists()) {
+
+                    def inboundEndpointXml = new XmlSlurper().parse(inboundEndpointFile)
+
+                    def inboundEndpointProtocol = inboundEndpointXml.@protocol.text()
+                    logger.info(" * protocol: " + inboundEndpointProtocol)
+                    def connectionFactoryType = inboundEndpointXml.parameters.parameter.find {it.@name.text() == 'transport.jms.ConnectionFactoryType'}.text()
+                    if (connectionFactoryType != ''){
+                        logger.info(" * ConnectionFactoryType: " + connectionFactoryType)
+                    }
+                    def subscriptionDurable = inboundEndpointXml.parameters.parameter.find {it.@name.text() == 'transport.jms.SubscriptionDurable'}.text()
+                    if (subscriptionDurable != ''){
+                        logger.info(" * SubscriptionDurable: " + subscriptionDurable)
+                    }
+
+                    if (inboundEndpointProtocol.toLowerCase() == 'jms' && connectionFactoryType.toLowerCase() == 'topic' && subscriptionDurable.toLowerCase() == 'true') {
+
+                        def subscriptionConfiguration = [:]
+                        subscriptionConfiguration['topicName'] = inboundEndpointXml.parameters.parameter.find {it.@name.text() == 'transport.jms.Destination'}.text()
+                        logger.info(" * Destination: " + subscriptionConfiguration['topicName'])
+                        subscriptionConfiguration['durableSubscriberName'] = inboundEndpointXml.parameters.parameter.find {it.@name.text() == 'transport.jms.DurableSubscriberName'}.text()
+                        logger.info(" * DurableSubscriberName: " + subscriptionConfiguration['durableSubscriberName'])
+                        subscriptionConfiguration['mbCluster'] = inboundEndpointXml.parameters.parameter.find {it.@name.text() == 'transport.jms.ConnectionFactoryJNDIName'}.text()
+                        logger.info(" * ConnectionFactoryJNDIName: " + subscriptionConfiguration['mbCluster'])
+
+                        logger.info(" > JMS inbound endpoint. Topic with durable subscription -> Need to delete the subsctiption")
+
+                        listOfTopicSubscribers << subscriptionConfiguration
+
+                    } else {
+
+                        if (inboundEndpointProtocol.toLowerCase() == 'jms') {
+
+                            logger.info(" > JMS inbound endpoint. Not a topic with durable subscription -> No need to remove subscription")
+
+                        } else {
+
+                            logger.info(" > " + inboundEndpointProtocol.toUpperCase() + " inbound endpoint -> No need to remove subscription")
+
+                        }
+
+                    }
+
+                } else {
+
+                    println " ** WARN: Source file ${it['filePath']} not found for inbound endpoint ${it['artifactId']}"
+
+                }
+
+            }
+
+        } else {
+
+            println "No inbound endpoints deployed in ${environment} environment"
+
+        }
+
+    } else {
+        logger.info("No inbound-endpoints found")
+    }
+
+    return listOfTopicSubscribers
+
+}
+
+def findInboundEndpoints() {
+
+    def listOfInboundEndpoints = []
+
+    def esbArtifactFile = new File(rootProject.name + '-esb' + File.separator + 'artifact.xml')
+
+    if (esbArtifactFile.exists()){
+
+        logger.info("Getting inbound-endpoint artifacts in ESB artifact.xml:")
+
+        def esbArtifactXml = new XmlSlurper().parse(esbArtifactFile)
+        esbArtifactXml.artifact.findAll {it.@type.text() == "synapse/inbound-endpoint"}.each { artifact ->
+            def inboundEndpoint = [:]
+            logger.info("- ${artifact.@groupId.text()}:${artifact.@name.text()}:${artifact.file.text()}")
+            inboundEndpoint['groupId'] = artifact.@groupId.text()
+            inboundEndpoint['artifactId'] = artifact.@name.text()
+            inboundEndpoint['filePath'] = artifact.file.text()
+            listOfInboundEndpoints << inboundEndpoint
+        }
+
+    } else {
+
+        println "artifact.xml not found for ESB"
+
+    }
+
+    return listOfInboundEndpoints
+
+}
+
+def filterDeployedInboundEndpoints(listOfInboundEndpoints,environment) {
+
+    def listOfDeployedInboundEndpoints = []
+
+    def mainPomFile = new File(rootProject.name + File.separator + 'pom.xml')
+    def mainPomXml = null
+    if (mainPomFile.exists()) {
+        mainPomXml = new XmlSlurper().parse(mainPomFile)
+    }
+
+    def envPomFile = new File(rootProject.name + '-config-' + environment + File.separator + 'pom.xml')
+    def envPomXml = null
+    if (envPomFile.exists()) {
+        envPomXml = new XmlSlurper().parse(envPomFile)
+    }
+
+    if (listOfInboundEndpoints.size() != 0) {
+
+        listOfInboundEndpoints.each{
+
+            def ieGroupId = it['groupId']
+            def ieArtifactId = it['artifactId']
+            def found = false
+
+            if (mainPomXml != null) {
+
+                if (mainPomXml.dependencies.dependency.find {it.groupId.text() == ieGroupId && it.artifactId.text() == ieArtifactId}.size() != 0) {
+
+                    listOfDeployedInboundEndpoints << it
+                    found = true
+
+                }
+
+            }
+
+            if (envPomXml != null && !found) {
+
+                if (envPomXml.dependencies.dependency.find {it.groupId.text() == ieGroupId && it.artifactId.text() == ieArtifactId}.size() != 0) {
+
+                    listOfDeployedInboundEndpoints << it
+
+                }
+
+            }
+
+        }
+
+    }
+
+    return listOfDeployedInboundEndpoints
+
+}
+
+def deleteTopicSubscription(topicName, subscriptionId, mbBroker) {
+
+    logger.info("Logging into MB cluster ${mbBroker}")
+    def mbUrl = new URL(getMbHttpServer(project.ext.get(mbBroker)))
+
+    println "Deleting ${subscriptionId} subscription for ${topicName} topic in cluster ${mbBroker}..."
+    andesAdminServiceStub.deleteQueue(subscriptionId);
+    andesAdminServiceStub.deleteTopicFromRegistry(topicName,subscriptionId);
+    println "${subscriptionId} subscription deleted for ${topicName} topic in cluster ${mbBroker}"
+
+    logger.info("Logging out from MB cluster ${mbBroker}")
+    mbAdminLogin.logout()
+
+}
+
+def getProjectProperty(property, defaultValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultValue
+    }
+}

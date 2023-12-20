@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<endpoint name="router-v1-rest-sample-api-endpoint" xmlns="http://ws.apache.org/ns/synapse">
+    <address uri="https://esb:8243/router-mock/v1"/>
+</endpoint>

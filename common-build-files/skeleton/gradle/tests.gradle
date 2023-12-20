@@ -1,0 +1,38 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+def aatDestination = '$projectDir/../../' + project.ext.projectName + '-aat'
+
+task copyAatTest(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/test-stub") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, testType: 'aat'])
+    }
+    into aatDestination
+}
+
+def sitDestination = '$projectDir/../../' + project.ext.projectName + '-sit'
+
+task copySitTest(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/test-stub") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, testType: 'sit'])
+    }
+    into sitDestination
+}
+
+copyAatTest.finalizedBy 'gradleWrapperAat'
+copySitTest.finalizedBy 'gradleWrapperSit'
+
+task gradleWrapperAat(type: Wrapper) {
+    gradleVersion = '2.14.1'
+    jarFile = "${aatDestination}/gradle/wrapper/gradle-wrapper.jar"
+    scriptFile = "${aatDestination}/gradlew"
+}
+
+task gradleWrapperSit(type: Wrapper) {
+    gradleVersion = '2.14.1'
+    jarFile = "${sitDestination}/gradle/wrapper/gradle-wrapper.jar"
+    scriptFile = "${sitDestination}/gradlew"
+}

@@ -1,0 +1,17 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+apply from: "$rootDir/reliable-delivery/gradle/common-methods.gradle"
+
+task createSubscribeFile() {
+    outputs.upToDateWhen { false }
+    copyFile("subscribe-sequence", "sequence")
+}
+
+task createSubscribeArtifact() {
+    addFileToArtifact("subscribe-sequence", "sequence")
+}
+
+task createSubscribePom() {
+    addDependancyToPom("subscribe-sequence", "sequence")
+}

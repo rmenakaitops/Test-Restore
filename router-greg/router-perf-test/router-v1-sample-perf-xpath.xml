@@ -1,0 +1,3 @@
+<root>
+	<xPath>//INVENTORY_RECEIPT_IFD/CTRL_SEG/INVENTORY_RECEIPT_IFD_SEG[1]/SITCOD/text()</xPath>
+</root>

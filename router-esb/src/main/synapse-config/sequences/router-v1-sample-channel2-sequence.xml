@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="router-v1-sample-channel2-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <property name="routingChannelResponseElement" scope="default">
+        <CANNEL>router-v1-sample-channel2-sequence</CANNEL>
+    </property>
+    <log>
+        <property expression="$ctx:routingChannelResponseElement" name="Routing to the channel : " xmlns:ns="http://org.apache.synapse/xsd"/>
+    </log>
+</sequence>

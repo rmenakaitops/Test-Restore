@@ -1,0 +1,26 @@
+apply from: "reliable-delivery/gradle/inputs.gradle"
+apply from: "reliable-delivery/gradle/createApi.gradle"
+apply from: "reliable-delivery/gradle/createLoopbackApi.gradle"
+apply from: "reliable-delivery/gradle/createPublishInSequence.gradle"
+apply from: "reliable-delivery/gradle/createInboundEndpoint.gradle"
+apply from: "reliable-delivery/gradle/createSubscribeSequence.gradle"
+apply from: "reliable-delivery/gradle/createMessageStore.gradle"
+apply from: "reliable-delivery/gradle/createMessageProcessor.gradle"
+apply from: "reliable-delivery/gradle/createPublishSequence.gradle"
+apply from: "reliable-delivery/gradle/createLoopbackEndpoints.gradle"
+
+
+task createReliableDeliveryRoute(dependsOn: [createLoopbackApi, createLoopbackArtifact, createLoopbackPom,
+                                             createInboundEndpointFile, createInboundEndpointArtifact, createInboundEndpointPom,
+                                             createSubscribeFile, createSubscribeArtifact, createSubscribePom,
+                                             createMessageStoreFile, createMessageStoreArtifact, createMessageStorePom,
+                                             createMessageProcessorFile, createMessageProcessorArtifact, createMessageProcessorPom,
+                                             createPublishFile, createPublishArtifact, createPublishPom,
+                                             createLoopbackEndpointFiles, createLoopbackEndpointArtifacts, createLoopbackEndpointPoms]) {
+                                                 doLast {}
+}
+
+if (project.ext.hasApi) {
+    createReliableDeliveryRoute.dependsOn createPublishInFile, createPublishInArtifact, createPublishInPom,
+                                          createApi, createApiArtifact, createApiPom
+}

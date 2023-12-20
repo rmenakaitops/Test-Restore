@@ -1,0 +1,134 @@
+import groovy.json.JsonSlurper
+import com.mitra.xmlvisualiser.XmlVisualiser
+
+buildscript {
+  repositories {
+    mavenLocal()
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+    maven { url 'https://plugins.gradle.org/m2' }
+    maven { url 'https://jitpack.io' }
+  }
+  dependencies {
+    classpath "gradle.plugin.com.github.mgk.gradle:s3:1.4.0"
+    classpath "com.mitra.xmlvisualiser:xml-visualiser:1.4"
+    classpath 'com.github.jeysal:gradle-graphviz-plugin:master-SNAPSHOT'
+  }
+}
+
+apply plugin: com.github.mgk.gradle.S3Plugin
+apply plugin: 'com.github.jeysal.graphviz'
+
+import com.github.mgk.gradle.*
+
+def getProjectProperty(property ) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        println("Property $property must be specified")
+    }
+}
+
+task uploadFile0() {
+  outputs.upToDateWhen { false }
+}
+
+def name = getProjectProperty("projectName" )
+def path = "./$name-esb/src/main/synapse-config"
+
+project.ext {
+  bucket = 'pipe-midw-'+System.getenv("VPC")+'-jenkins'
+}
+
+task generateDiagrams() {
+
+  doFirst {
+    createDiagrams(name, path)
+
+    def d = new File("./diagrams/$name")
+    d.mkdirs()
+    def ds = new File("./diagrams/$name/sequences")
+    ds.mkdirs()
+    def da = new File("./diagrams/$name/apis")
+    da.mkdirs()
+    def p = new File("./diagrams/$name/proxy-services")
+    p.mkdirs()
+    def ia = new File("./diagrams/$name/inbound-endpoints")
+    ia.mkdirs()
+  }
+}
+
+vizSetup.enabled = true
+
+graphviz {
+    formats = ['svg']
+    sourceDir = file("../$path")
+    outputDir = file("../diagrams/$name")
+}
+
+if (!project.hasProperty("justDraw")) {
+  graphviz.dependsOn generateDiagrams
+}
+
+def lastIndex = scanDirectory(name, "../diagrams", file("../diagrams").getAbsolutePath(), 1)
+
+task "uploadFile$lastIndex" {
+  outputs.upToDateWhen { false }
+
+  doLast {
+    println "*** Upload of results finished"
+  }
+}
+
+
+def createDiagrams(name, path) {
+
+  def xmlVisualiser = new XmlVisualiser((String[])["-s",
+    "-d",
+    "-g",
+    name,
+    "-i",
+    path,
+    "-p",
+    "gov:../../../../$name-greg/prod",
+    "-o",
+    path])
+  xmlVisualiser.scan()
+}
+
+def scanDirectory(name, path, root, index) {
+
+  def files = files { file("$path").listFiles() }
+
+  files.each {
+
+    def itString = it.toString()
+    def targetPath = itString.replace(root,"")
+
+    if (it.isDirectory()) {
+      index = scanDirectory(name, itString, root, index)
+    } else {
+
+      if (itString.endsWith(".svg")) {
+
+        def nextIndex = index + 1
+
+        task "uploadFile$index"(type: S3Upload) {
+          outputs.upToDateWhen { false }
+
+          bucket = project.ext.bucket
+          key = "diagrams$targetPath"
+          file = "$itString"
+          overwrite = true
+
+          finalizedBy "uploadFile$nextIndex"
+        }
+
+        index++
+      }
+    }
+  }
+
+  return index
+}

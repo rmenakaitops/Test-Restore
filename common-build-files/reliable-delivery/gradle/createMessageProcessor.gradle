@@ -1,0 +1,17 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+apply from: "$rootDir/reliable-delivery/gradle/common-methods.gradle"
+
+task createMessageProcessorFile(type: Copy) {
+    outputs.upToDateWhen { false }
+    copyFile("message-processor", "message-processor")
+}
+
+task createMessageProcessorArtifact() {
+    addFileToArtifact("message-processor", "message-processors")
+}
+
+task createMessageProcessorPom() {
+    addDependancyToPom("message-processor", "message-processors")
+}

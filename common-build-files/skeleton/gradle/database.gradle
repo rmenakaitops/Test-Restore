@@ -1,0 +1,30 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+task copyFlyway(type: Copy) {
+    from ("$projectDir/skeleton/resources/conf/flyway") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, schema: project.ext.schema])
+    }
+    into '$projectDir/../../conf/flyway'
+}
+
+task copyDatasource(type: Copy) {
+
+    outputs.upToDateWhen { false }
+
+    from ("$projectDir/skeleton/resources/conf/datasource") {
+        include '**/*'
+    }
+    into '$projectDir/../../conf/datasource'
+}
+
+def datasourceDestination = '$projectDir/../../' + project.ext.projectName + '-datasource'
+
+task copyProjectDatasource(type: Copy) {
+
+    from ("$projectDir/skeleton/resources/datasource") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName])
+    }
+    into datasourceDestination
+}

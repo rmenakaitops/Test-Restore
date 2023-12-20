@@ -1,0 +1,16 @@
+[
+   {
+      "condition":"1000",
+      "sequences":[
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"
+      ]
+   },
+   {
+      "condition": "2000",
+      "sequences": [
+         "router-v1-sample-channel1-sequence",
+         "router-v1-sample-channel2-sequence"	 
+      ]
+    }
+]

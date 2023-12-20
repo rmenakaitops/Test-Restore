@@ -1,0 +1,7 @@
+project.ext {
+  println "running log-aat.gradle"
+
+  logDB = "mysql://mock-1:3307/aat1"
+  logDBUsername = "root"
+  logDBPassword = "1234"
+}

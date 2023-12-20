@@ -1,0 +1,68 @@
+configure(subprojects.findAll( { gradle.ext.cars.contains(it.name) })) {
+    task deployApisAndCarsLocal(dependsOn: [ ":deploySolution", ":${rootProject.name}:deployLocal", ":${rootProject.name}-config-local:deployLocal"]) {
+        group = "Test framework"
+        description = "Build Local, Sandbox, AAT, SIT, UAT, PERF, PPD & PROD configuration car(s), main application car; deploy relevent car(s) to relevent server(s), and deploy to api manager"
+    }
+}
+
+task cucumberAAT(type: Exec) {
+    group = "Test framework"
+    description = "Runs acceptance tests using local docker containers"
+
+    doFirst {
+        getEnvironmentalDockerStuff()
+        commandLine './gradlew', '-b', 'router-aat/build.gradle', 'cucumberAcceptanceTestsLocal', populateLocalEnvironmentEndpoints(), '-Pdeploy-environment=local', '-Dwso2carbon-password=wso2carbon'
+    }
+}
+
+task cucumberSIT(type: Exec) {
+    group = "Test framework"
+    description = "Runs ***SIT*** acceptance tests using local docker containers"
+
+    doFirst {
+        getEnvironmentalDockerStuff()
+        commandLine './gradlew', '-b', 'router-sit/build.gradle', 'cucumberAcceptanceTestsLocal', populateLocalEnvironmentEndpoints(), '-Pdeploy-environment=local', '-Dwso2carbon-password=wso2carbon'
+    }
+}
+
+def populateLocalEnvironmentEndpoints() {
+
+    return '-Pextra-args=\
+                -Dserver-esb-url=https://' + dockerESBContainerIP + ':9444\
+                -Dserver-esb-http-in-url=https://esb-4.9.0:8244\
+                -Dserver-esb-username=admin\
+                -Dserver-esb-password=admin\
+                -Dserver-mb-tcp-broker=tcp://' + dockerMBContainerIP + ':5676\
+                -Dserver-mb-url=https://' + dockerMBContainerIP + ':9447\
+                -Dserver-dss-url=https://' + dockerDSSContainerIP + ':9448\
+                -Dserver-dss-http-in-url=https://' + dockerDSSContainerIP + ':9448\
+                -Dserver-worker-dss-urls=https://' + dockerDSSContainerIP + ':9448\
+                -Dserver-dss-dataservice-port=9768\
+                -Dserver-dss-username=admin\
+                -Dserver-dss-password=admin\
+                -Dserver-am-url=https://' + dockerAPIContainerIP + ':9446\
+                -Dserver-am-http-in-url=https://' + dockerAPIContainerIP + ':8246\
+                -Dserver-am-username=admin\
+                -Dserver-am-password=admin\
+                -Dserver-get-token=http://' + dockerAPIContainerIP + ':9766/store/site/blocks\
+                -Partifactory-url=http://10.6.96.172:8080/artifactory\
+                -Pbuild-number=1\
+                -Ppipeline-stage=unit'
+}
+
+def getEnvironmentalDockerStuff() {
+    getDockerStatus.execute()
+    if (dockerStatus.contains("${esbContainerName}")) {
+        esbContainerIpAddress.execute()
+    }
+    if (dockerStatus.contains("${dataServicesContainerName}")) {
+        dssContainerIpAddress.execute()
+    }
+    if (dockerStatus.contains("${apiManagerContainerName}")) {
+        apiContainerIpAddress.execute()
+    }
+    if (dockerStatus.contains("${messageBrokerContainerName}")) {
+        mbContainerIpAddress.execute()
+    }
+}
+

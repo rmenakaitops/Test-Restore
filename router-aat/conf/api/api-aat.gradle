@@ -1,0 +1,6 @@
+project.ext {
+  esbURL = System.getenv("WSO2_ESB_HTTP_IN_AAT")
+  esbServiceURL = System.getenv("WSO2_ESB_AAT")
+  routerApiURL = esbURL + "/router/v1/usecase"
+  adminServiceApiURL = esbServiceURL + "/services"
+}

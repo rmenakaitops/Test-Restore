@@ -1,0 +1,439 @@
+import groovy.json.*
+
+ext {
+       managerLoginUri = "${amServer}/publisher/site/blocks/user/login/ajax/login.jag"
+       managerCreateUri = "${amServer}/publisher/site/blocks/item-add/ajax/add.jag"
+       managerDesignUri = "${amServer}/publisher/site/blocks/item-design/ajax/add.jag"
+       managerPublishUri = "${amServer}/publisher/site/blocks/life-cycles/ajax/life-cycles.jag"
+       managerGetApiUri = "${amServer}/publisher/site/blocks/listing/ajax/item-list.jag"
+       managerPostDocumentUri = "${amServer}/publisher/site/blocks/documentation/ajax/docs.jag"
+       publishProvider = "admin"
+
+       targetApiName = "${apiName}"
+       targetApiVersion = "${apiVersion}"
+       apiStoreUri = "${apiGetTokenServer}"
+       userName = "${amUsername}"
+       passWord = "${amPassword}"
+
+       defaultPublishState = "PUBLISHED"
+       prototypedApi = false
+
+       if (project.hasProperty('thisIsAPrototypeAPI')) {
+
+           prototypedApi = thisIsAPrototypeAPI
+           defaultPublishState = "PROTOTYPED"
+       }
+
+       generateToken = {
+           genToken()
+       }
+
+       generateSandboxToken = {
+           genSandboxToken()
+       }
+}
+
+task manageAndPublishApis {
+    doLast {
+        swaggerLoop({
+        
+        if(targetSwaggerFile) {
+
+            validateSwagger()            
+            manage()
+            publish()
+                if (prototypedApi) {
+                
+                    println "Project is a PROTOTYPE. Updating endpoint."
+                    setPrototype()
+                }
+            }
+            else {
+                println "No API to manage and publish"
+            }
+        })
+    }
+}
+
+task manageApi {
+    doLast {
+        println "Creating or updating API"
+        swaggerLoop({manage()})
+    }
+}
+
+def swaggerLoop(funcToCall){
+
+    project.ext.apiStoreUri = apiGetTokenServer
+
+    def counter = 0
+    toList(apiName).each {
+
+        project.ext.targetApiName = getItem("apiName", counter)
+        project.ext.targetApiContext = getItem("apiContext", counter)
+        project.ext.targetApiSandboxContext = getItem("apiSandboxContext", counter)
+        project.ext.targetApiVersion = getItem("apiVersion", counter)
+        project.ext.targetApiTags = getItem("apiTags", counter)
+        project.ext.targetApiDescription = getItem("apiDescription", counter)
+        project.ext.targetSwaggerFile = getItem("swaggerFile", counter)
+        project.ext.targetDocumentUrl = getItem("documentUrl", counter)
+        project.ext.targetDocumentName = getItem("documentName", counter)
+        project.ext.targetProductionEndpoint = getItem("productionEndpoint", counter)
+        project.ext.targetSandboxEndpoint = getItem("sandboxEndpoint", counter)
+        project.ext.targetSecureEndpointUser = getItem("secureEndpointUser", counter)
+        project.ext.targetSecureEndpointPass = getItem("secureEndpointPass", counter)
+
+        if (!project.hasProperty('thisIsAStandaloneAPI')) {
+            project.ext.targetProductionEndpoint = "${esbHttpServer}${targetApiContext}/${targetApiVersion}"
+            project.ext.targetSandboxEndpoint = "${esbHttpServer}${targetApiSandboxContext}/${targetApiVersion}"
+        }
+
+        project.ext.generateToken = {
+            genToken()
+        }
+
+        project.ext.generateSandboxToken = {
+            genSandboxToken()
+        }
+
+        funcToCall()
+
+        counter++
+    }
+}
+
+task publishApi {
+    doLast{
+        println "Publishing API"
+        publish()
+    }
+}
+
+publishApi.mustRunAfter manageApi
+
+def validateSwagger() {
+
+    def url = "https://online.swagger.io/validator/debug"
+    def slurper = new JsonSlurper();
+    def swaggerFileName = project.ext.targetSwaggerFile.substring(project.ext.targetSwaggerFile.lastIndexOf(rootProject.name))
+    def swagger
+    
+    try {
+        swagger = slurper.parseText(new File(project.ext.targetSwaggerFile).text.replace('\n', '').replace('&', '%26'))
+    } catch (Exception ex) {
+        throw new GradleException("Unable to parse malformed swagger file " + swaggerFileName + ". Check JSON is valid")       
+    }
+    
+    def data = new JsonBuilder(swagger).toString()
+    def response
+    def responseString
+
+    println "Validating swagger file " + swaggerFileName
+    println "Executing following curl command: curl -X POST " + url + " -d '" + data + "'"
+
+    new ByteArrayOutputStream().withStream { os ->
+        def result = exec {
+            executable = "curl"
+            args = ['-X', 'POST', url, '--silent', '-d', data]
+            standardOutput = os
+        }
+        responseString = os.toString()
+        println "Response from online.swagger.io = " + responseString
+        response = new JsonSlurper().parseText(responseString)
+    }
+
+    if (responseString == "{}") {
+        println "Swagger file " + swaggerFileName + " validated successfully"
+    } else {
+        if (response.messages != null) {
+            println "Swagger file " + swaggerFileName + " failed validation for the following reasons:"
+            response.messages.each { message->
+               println("* " + message)
+            }
+            throw new GradleException("Swagger file " + swaggerFileName + " failed validation")
+        } else {
+            throw new GradleException("An unexpected error occurred when calling " + url)           
+        }
+    }
+}
+
+def manage() {
+
+    println "Logging in as ${amUsername}"
+    loginToManger()
+    apiExists()
+
+    if (theApiExists) {
+        println "Updating existing API ${targetApiName}"
+        save('updateAPI')
+    } else {
+        println "Creating new API ${targetApiName}"
+        save('addAPI')
+    }
+}
+
+def publish() {
+
+    def url = managerPublishUri
+    def action = "action=updateStatus&name=${targetApiName}&version=${targetApiVersion}&provider=${publishProvider}&status=${defaultPublishState}&publishToGateway=true&requireResubscription=true"
+    executeCurl(url, action, '-b', "gradle job publish", true)
+    addDocumentation()
+}
+
+def loginToManger() {
+
+    def url = managerLoginUri
+    def action = "action=login&username=" + userName + "&password=" + passWord
+    executeCurl(url, action, '-c', "gradle job loginToManger", true)
+}
+
+def save(action) {
+
+    def throttlingTiers = project.hasProperty("tiers") ? project.getProperty("tiers") : "Unlimited"
+
+    def targetEndpointType = targetSecureEndpointUser != "" ? "secured&epUsername=${targetSecureEndpointUser}&epPassword=${targetSecureEndpointPass}" : "nonsecured"
+
+    def apiConfig = "action=${action}&name=${targetApiName}&context=${targetApiContext}/{version}&version=${targetApiVersion}&provider=${publishProvider}&visibility=public&thumbUrl=&description=${targetApiDescription}&tags=${targetApiTags}&endpointType=${targetEndpointType}&tiersCollection=${throttlingTiers}&http_checked=http&https_checked=https"
+
+    if (project.hasProperty("customInSequence")) {
+        apiConfig += "&inSequence=${customInSequence}"
+    }
+
+    if (project.hasProperty("customOutSequence")) {
+        apiConfig += "&outSequence=${customOutSequence}"
+    }
+
+    if (project.hasProperty("customFaultSequence")) {
+        apiConfig += "&faultSequence=${customFaultSequence}"
+    }
+
+    def endpointConfig = "endpoint_config={\"production_endpoints\": {\"url\":\"${targetProductionEndpoint}\", \"config\": null}"
+
+    if (project.hasProperty("sandboxEndpoint")) {
+        endpointConfig += ",\"sandbox_endpoints\":{\"url\":\"${targetSandboxEndpoint}\", \"config\": null}"
+    }
+
+    endpointConfig += ",\"endpoint_type\":\"http\"}"
+
+    apiConfig += "&" + endpointConfig + "&" + "swagger=" + getSwagger("${targetSwaggerFile}")
+    executeCurl("${managerCreateUri}", apiConfig, '-b', "gradle job save", true)
+}
+
+def setPrototype() {
+
+    def apiConfig = "action=implement&name=${targetApiName}&version=${targetApiVersion}&provider=${publishProvider}&implementation_methods=${prototypeSource}&prototype_endpoint=${prototypeEndpoint}"
+    apiConfig += "&endpoint_config={\"production_endpoints\": {\"url\":\"${targetProductionEndpoint}\", \"config\": null},\"endpoint_type\":\"http\"}&swagger=" + getSwagger("${targetSwaggerFile}")
+    
+    executeCurl("${managerDesignUri}", apiConfig, '-b', "gradle job prototype", true)
+}
+
+def addDocumentation() {
+
+    if (project.hasProperty("documentUrl")) {
+        println "Deploying API Documentation"
+
+        def curlConfig = ""
+
+        curlConfig = "action=addDocumentation"
+        curlConfig += "&mode=Update"
+        curlConfig += "&provider=${publishProvider}"
+        curlConfig += "&apiName=${targetApiName}"
+        curlConfig += "&version=${targetApiVersion}"
+        curlConfig += "&docName=${targetDocumentName}"
+        curlConfig += "&docType=how to"
+        curlConfig += "&sourceType=url"
+        curlConfig += "&summary=''"
+        curlConfig += "&docUrl=${targetDocumentUrl}"
+        def response = executeCurl("${managerPostDocumentUri}", curlConfig, '-b', "gradle job addDocumentation", false)
+
+        if (response.error){
+            curlConfig = "action=addDocumentation"
+            curlConfig += "&provider=${publishProvider}"
+            curlConfig += "&apiName=${targetApiName}"
+            curlConfig += "&version=${targetApiVersion}"
+            curlConfig += "&docName=${targetDocumentName}"
+            curlConfig += "&docType=how to"
+            curlConfig += "&sourceType=url"
+            curlConfig += "&summary=''"
+            curlConfig += "&docUrl=${targetDocumentUrl}"
+            executeCurl("${managerPostDocumentUri}", curlConfig, '-b', "gradle job addDocumentation", false)
+        }
+    }
+}
+
+def apiExists() {
+    println "Checking if API ${targetApiName} exists"
+    project.ext.theApiExists = checkApi().exist.toBoolean()
+}
+
+def checkApi() {
+    def url = "${managerCreateUri}"
+    def action = "action=isAPINameExist&apiName=${targetApiName}"
+    return executeCurl(url, action, '-b', "gradle job checkApi", false)
+}
+
+def getSwagger(file) {
+    def slurper = new JsonSlurper();
+    def swagger = slurper.parseText(new File(file).text.replace('\n', '').replace('&', '%26'))
+
+    if (swagger.info == null) {
+        swagger.info = slurper.parseText('{"description": "Please supply a description"}')
+    }
+
+    def date = new Date()
+    def formattedDate = date.format('yyyyMMddHHmmss')
+    swagger.info.description += ' : (build ' + formattedDate + ')'
+
+    swagger.paths."/z${formattedDate}" = slurper.parseText('{ "get": { "x-auth-type": "Application", "x-throttling-tier": "Unlimited", "responses": { "200": {} } } }')
+
+    return new JsonBuilder(swagger).toString()
+}
+
+def genToken() {
+
+    println "Generating Bearer Token FROM gradle API"
+    println "***************************  PARAMS  ************************************************"
+    println "targetApiName: " + targetApiName
+    println "targetApiVersion: " + targetApiVersion
+    println "application: ${newApplicationName}"
+    println "apiStoreUri: " + apiStoreUri
+    println "userName: " + userName
+    println "password: " + passWord
+    println "subscriptionTier: " + subscriptionTier
+    println "***************************************************************************"
+
+    loginStoreAPI()
+
+    // Not fully implemented/used should we continue/ignore if this is the case
+    //isThereAValidSubscription()
+
+    deleteApplication()
+    addApplication()
+    swaggerLoop({addSubscription()})
+
+    def token = getToken('PRODUCTION')
+
+    println "***token: " + token
+
+    return token
+}
+
+def genSandboxToken() {
+    def token = getToken('SANDBOX')
+    println "***sandbox token: " + token
+    return token
+}
+
+def loginStoreAPI() {
+    def url = apiStoreUri + "/user/login/ajax/login.jag"
+    def action = "action=login&username=" + userName + "&password=" + passWord
+    executeCurl(url, action, '-c', "gradle job loginStoreAPI", true)
+}
+
+def deleteApplication() {
+    def url = apiStoreUri + "/application/application-remove/ajax/application-remove.jag"
+    def action = "action=removeApplication&application=${newApplicationName}"
+    //Lazy way of doing this, if it fails it may not exist to delete - but I can probably look it up
+    executeCurl(url, action, '-b', "gradle job deleteApplication", false)
+}
+
+def addApplication() {
+    def action = "action=addApplication&application=${newApplicationName}&tier=Unlimited&description=&callbackUrl="
+    def url = apiStoreUri + "/application/application-add/ajax/application-add.jag"
+    executeCurl(url, action, '-b', "gradle job addApplication", true)
+}
+
+def addSubscription() {
+    def action = "action=addAPISubscription&name=" + targetApiName + "&version=" + targetApiVersion + "&provider=${publishProvider}&tier=" + subscriptionTier + "&applicationName=${newApplicationName}"
+    def url = apiStoreUri + "/subscription/subscription-add/ajax/subscription-add.jag"
+    executeCurl( url, action, '-b', "gradle job addSubscription", true)
+}
+
+def getToken(tokenEnvironment) {
+    def url = apiStoreUri + "/subscription/subscription-add/ajax/subscription-add.jag"
+    def action = "action=generateApplicationKey&application=${newApplicationName}&keytype=" + tokenEnvironment + "&callbackUrl=&authorizedDomains=ALL&validityTime=-1"
+    def response = executeCurl( url, action, '-b', "gradle job getToken", true)
+     return response.data.key.accessToken
+}
+
+def isThereAValidSubscription() {
+    def url = apiStoreUri + "/subscription/subscription-list/ajax/subscription-list.jag"
+    def action = "action=getSubscriptionByApplication&app=${newApplicationName}"
+    def response = executeCurl( url, action, "-b", "gradle job isThereAValidSubscription" , true)
+
+    println response
+
+    response.apis.each {
+        println "***********Each API: " + it.apiName + " Version" + it.apiVersion
+
+        def matched = true
+
+        if( it.apiName == targetApiName && it.apiVersion == targetApiVersion && it.subscribedTier == subscriptionTier ) {
+            println "Existing subscription :)"
+        }
+    }
+}
+
+def executeCurl(url, action, cookiePrefix, callingFunctionName, exitOnError) {
+
+    println "executing following curl command: curl -s -S --noproxy '*' --insecure -X POST " + cookiePrefix + " cookies " + url + " -d '...'"
+
+    println "action=" + action
+
+    def response
+
+    new ByteArrayOutputStream().withStream { os ->
+        def result = exec {
+            executable = "curl"
+            args = [
+                '-s','-S',
+                '--noproxy', '*',
+                '--insecure',
+                '-X', 'POST',
+                cookiePrefix, 'cookies',
+                url,
+                '-d', action
+            ]
+            standardOutput = os
+        }
+        def responseString = os.toString()
+        println "responseString = " + responseString
+        response = new JsonSlurper().parseText(responseString)
+    }
+
+    if (response.error) {
+        println "response ERROR in " + callingFunctionName
+        println "error executing following curl command: curl -s -S --noproxy '*' --insecure -X POST " + cookiePrefix + " cookies " + url + " -d '" + action + "'"
+
+        if( exitOnError ) {
+            throw new GradleException(response.message)
+        }
+    }
+
+    return response
+
+}
+
+def getItem(items, field) {
+    def theseItems = toList(getProp(items))
+
+    if (theseItems.size() > field)
+        return theseItems[field]
+
+    return ""
+}
+
+def toList(String value) {
+    return [value]
+}
+
+def toList(value) {
+    value ?: []
+}
+
+def getProp(String key){
+    if (project.hasProperty(key))
+        return project.ext.get(key)
+
+    return ""
+}

@@ -1,0 +1,30 @@
+<artifacts>
+  <artifact name="router-v1-sample-rule-definition-json" groupId="com.mitra.middleware.router-greg.resource" version="1.0.2" type="registry/resource" serverRole="GovernanceRegistry">
+    <item>
+      <file>router-rules/router-v1-sample-rule-definition.json</file>
+      <path>/_system/governance/router-rules</path>
+      <mediaType>application/json</mediaType>
+    </item>
+  </artifact>
+  <artifact name="router-v1-rest-sample-api-endpoint-local" groupId="com.mitra.middleware.router-greg.resource" version="1.0.2" type="registry/resource" serverRole="EnterpriseServiceBus">
+    <item>
+      <file>endpoints/local/router-v1-rest-sample-api-endpoint.xml</file>
+      <path>/_system/governance/endpoints</path>
+      <mediaType>application/vnd.wso2.esb.endpoint</mediaType>
+    </item>
+  </artifact>
+  <artifact name="router-v1-rest-sample-api-endpoint-pipeline" groupId="com.mitra.middleware.router-greg.resource" version="1.0.2" type="registry/resource" serverRole="EnterpriseServiceBus">
+    <item>
+      <file>endpoints/pipeline/router-v1-rest-sample-api-endpoint.xml</file>
+      <path>/_system/governance/endpoints</path>
+      <mediaType>application/vnd.wso2.esb.endpoint</mediaType>
+    </item>
+  </artifact>
+  <artifact name="router-v1-sample-perf-xpath" groupId="com.mitra.middleware.router-greg.resource" version="1.0.2" type="registry/resource" serverRole="GovernanceRegistry">
+    <item>
+      <file>router-perf-test/router-v1-sample-perf-xpath.xml</file>
+      <path>/_system/governance/router-perf-test</path>
+      <mediaType>application/xml</mediaType>
+    </item>
+  </artifact>
+</artifacts>

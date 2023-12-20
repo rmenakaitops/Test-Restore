@@ -1,0 +1,97 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+def getProjectProperty(property, defaultPropertyValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
+task datasourceConfigure() {
+    doLast {
+        def datasourceGradle = new File("conf/datasource/ds-" + getProjectProperty("deploy-environment","local") + ".gradle")
+
+        if (datasourceGradle.exists()) {
+            apply from: datasourceGradle
+        }
+    }
+}
+
+task createEnvDataSource(type: Copy) {
+
+  def environment = getProjectProperty("deploy-environment", "local")
+
+  outputs.upToDateWhen { false }
+
+  from "${rootProject.name}-datasource/"
+  into "${rootProject.name}-datasource/"
+
+  include "*datasource.xml"
+  rename '(.*).xml', '$1-'+"${environment}.xml"
+  
+  doFirst {
+    def tokens = [
+      "mySqlHost": getProjectProperty('mySqlHost', '').replace("#PIPELINE-ENVIRONMENT#", getProjectProperty('pipelineEnvironment','')),
+      "mySqlUsername": getProjectProperty('mySqlUsername',''),
+      "mySqlPassword": getProjectProperty('mySqlPassword', ''),
+      "msSqlHost": getProjectProperty('msSqlHost', ''),
+      "msSqlUsername": getProjectProperty('msSqlUsername', ''),
+      "msSqlPassword": getProjectProperty('msSqlPassword', ''),
+      "msSqlDatabase": getProjectProperty('msSqlDatabase', '')
+    ]
+
+    if (project.ext.has('extraDatasourceTokens')) {
+      tokens += project.ext.get('extraDatasourceTokens')
+    }
+
+    filter(ReplaceTokens, tokens: tokens)
+  }
+}
+
+task deployDataSource {
+    doLast {
+        def environment = getProjectProperty("deploy-environment", "local")
+        def pass = "${dssUsername}:${dssPassword}"
+        def url = "${dssServer}/services/NDataSourceAdmin.NDataSourceAdminHttpsSoap11Endpoint"
+        def datasourceDirectory = "${rootProject.name}-datasource"
+
+        def directory = new File(datasourceDirectory)
+        def classPattern = ~/.*datasource-$environment\.xml/
+        directory.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+
+            if (file ==~ classPattern)
+            {
+                def response
+
+                println "\nDeploying datasource $file..."
+                println "url = $url..."
+
+                new ByteArrayOutputStream().withStream { os ->
+
+                    def result = exec {
+
+                        executable = "curl"
+                        args = [
+                          "-S", "-s", "-u", pass,
+                          "--noproxy", "*",
+                          "--insecure", "-X", "POST",
+                          "--header", "Content-Type:text/xml;charset=UTF-8",
+                          "--header", "SOAPAction:addDataSource",
+                          url, "--data", "@${file}"
+                        ]
+
+                        standardOutput = os
+                    }
+
+                    response = os.toString()
+                  }
+
+                println response
+            }
+        }
+    }
+}
+
+createEnvDataSource.dependsOn datasourceConfigure
+deployDataSource.dependsOn createEnvDataSource

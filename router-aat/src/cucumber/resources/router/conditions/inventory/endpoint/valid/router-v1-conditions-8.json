@@ -1,0 +1,8 @@
+[
+   {
+      "condition":"PONUM",
+      "sequences":[
+         "router-v1-sample-ep-channel1-sequence"
+      ]
+   }
+]

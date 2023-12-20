@@ -1,0 +1,7 @@
+project.ext {
+  databaseContainerIpAddress.execute()
+
+  mySqlHost = dockerMysqlContainerIP
+  mySqlUsername = "root"
+  mySqlPassword = "root"
+}

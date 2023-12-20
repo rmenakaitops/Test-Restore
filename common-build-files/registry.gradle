@@ -1,0 +1,65 @@
+import groovy.json.JsonSlurper
+
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+    maven { url 'http://repo1.maven.org/maven2' }
+  }
+
+}
+
+def getProjectProperty(property, defaultPropertyValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
+task ensureConfigRemoved() {
+    doLast {
+        
+    }
+}
+
+allprojects {
+    afterEvaluate { project ->
+        if (project.tasks.findByName("deploySolution")) {
+            deploySolution.dependsOn ensureConfigRemoved
+            deploySolution.finalizedBy deployRegistry
+        }
+        if (project.tasks.findByName("deployApisAndCarsLocal")) {
+            deployApisAndCarsLocal.dependsOn ensureConfigRemoved
+            deployApisAndCarsLocal.finalizedBy deployRegistry
+        }
+    }
+}
+
+task deployRegistry() {
+    doLast {
+        
+    }
+}
+
+def getArtifacts(deployEnvironment) {
+
+    def xmlFile = "$projectDir/" + project.name + "-greg/artifact.xml"
+    def xml = new XmlParser().parse(xmlFile)
+
+    def artifacts = xml.artifact.findAll{ a ->
+      a.@name.endsWith("-"+deployEnvironment)
+    }
+
+    return artifacts
+}
+
+def loadConfig() {
+    def inputFile = new File("$projectDir/conf/config.json")
+    def json = new JsonSlurper().parseText(inputFile.text)
+
+    return json
+}

@@ -1,0 +1,17 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+apply from: "$rootDir/reliable-delivery/gradle/common-methods.gradle"
+
+task createPublishInFile() {
+    outputs.upToDateWhen { false }
+    copyFile("publish-in-sequence", "sequence")
+}
+
+task createPublishInArtifact() {
+    addFileToArtifact("publish-in-sequence", "sequence")
+}
+
+task createPublishInPom() {
+    addDependancyToPom("publish-in-sequence", "sequence")
+}

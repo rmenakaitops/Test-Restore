@@ -1,0 +1,14 @@
+def console = System.console()
+
+println "\nPlease supply the following information:\n\n"
+
+def defaultProjectName = projectDir.getParentFile().getName()
+
+println "Project name [$defaultProjectName]"
+
+project.ext.projectName = defaultProjectName
+project.ext.routeName = console.readLine("> Route name: ")
+project.ext.topicName = console.readLine("> Topic name: ")
+project.ext.capability = console.readLine("> Capability: ")
+
+project.ext.hasApi = console.readLine('> Has API? [N]: ')

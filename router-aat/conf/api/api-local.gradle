@@ -1,0 +1,4 @@
+project.ext {
+  routerApiURL = "https://localhost:8244/router/v1/usecase"
+  adminServiceApiURL = "https://localhost:9444/services"
+}

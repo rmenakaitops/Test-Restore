@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="router-v1-sample-route-messages-perf-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <property name="sequenceName" scope="default" type="STRING" value="router-v1-sample-route-messages-perf-sequence"/>
+    <property expression="$func:routerIntergationVersion" name="interfaceVersion" scope="default" type="STRING"/>
+    <property expression="$func:routerIntegrationReference" name="interfaceReferance" scope="default" type="STRING"/>
+    <property name="routerInterfaceVersionMsg" scope="default" type="STRING" value="[router-v1]: Input message received."/>
+    <call-template description="Call: logger-v3-template" target="logger-v3-template">
+        <with-param name="integrationReference" value="{$ctx:interfaceReferance}"/>
+        <with-param name="integrationVersion" value="{$ctx:interfaceVersion}"/>
+        <with-param name="sequenceName" value="{$ctx:sequenceName}"/>
+        <with-param name="includeMessageBody" value="false"/>
+        <with-param name="logMessage" value="{$ctx:routerInterfaceVersionMsg}"/>
+    </call-template>
+    <property expression="$func:routerRuleDefinitionPath" name="routerRuleDefinitionPath" scope="default" type="STRING"/>
+    <property expression="get-property('registry', 'gov:/router-perf-test/router-v1-sample-perf-xpath.xml')" name="xPath" scope="default" type="OM"/>
+    <switch source="evaluate($ctx:xPath//xPath)">
+        <case regex="9246">
+            <sequence key="router-v1-sample-channel1-sequence"/>
+            <sequence key="router-v1-sample-channel2-sequence"/>
+            <sequence key="router-v1-sample-channel3-sequence"/>
+        </case>
+        <case regex="1096">
+            <sequence key="router-v1-sample-channel1-sequence"/>
+            <sequence key="router-v1-sample-channel2-sequence"/>
+        </case>
+        <default/>
+    </switch>
+    <property name="routerInterfaceVersionMsg" scope="default" type="STRING" value="[router-v1]: Input message has successfully routed."/>
+    <call-template description="Call: logger-v3-template" target="logger-v3-template">
+        <with-param name="integrationReference" value="{$ctx:interfaceReferance}"/>
+        <with-param name="integrationVersion" value="{$ctx:interfaceVersion}"/>
+        <with-param name="sequenceName" value="{$ctx:sequenceName}"/>
+        <with-param name="includeMessageBody" value="false"/>
+        <with-param name="logMessage" value="{$ctx:routerInterfaceVersionMsg}"/>
+    </call-template>
+</sequence>

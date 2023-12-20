@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="router-v1-sample-api-response-sequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <payloadFactory media-type="xml">
+        <format>
+            <RESPONSE>
+                <SUCCESS>Payload has been successfully routed</SUCCESS>
+                <DETAIL>$1</DETAIL>
+            </RESPONSE>
+        </format>
+        <args>
+            <arg evaluator="xml" expression="$ctx:routerLogMessage"/>
+        </args>
+    </payloadFactory>
+    <respond/>
+</sequence>

@@ -1,0 +1,26 @@
+[
+   {
+      "condition":"1000.0",
+      "sequences":[
+         "router-v1-sample-ep-channel1-sequence"
+      ]
+   },
+   {
+      "condition": "2000.0",
+      "sequences": [
+         "router-v1-sample-ep-channel2-sequence"	 
+      ]
+    },
+   {
+      "condition": "3000.0",
+      "sequences": [
+         "router-v1-sample-ep-channel1-sequence"	 
+      ]
+    },
+   {
+      "condition": "4000.0",
+      "sequences": [
+         "router-v1-sample-ep-channel2-sequence"	 
+      ]
+    }
+]

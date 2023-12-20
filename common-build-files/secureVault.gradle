@@ -1,0 +1,29 @@
+apply plugin: 'java'
+
+buildscript {
+
+  repositories {
+    mavenLocal()
+    jcenter()
+  }
+
+}
+
+task secureCredentialsInVault() {
+    doLast {
+       // def secureVault = new com.mitra.middleware.testsupport.wso2.SecureVault()
+
+       // def esbServer = new com.mitra.middleware.testsupport.wso2.ServerInformation.ServerInformationBuilder(project.ext.esbServer,
+         //   project.ext.esbUsername,
+          //  project.ext.esbPassword,
+          //  com.mitra.middleware.testsupport.wso2.WSO2Component.ESB,
+          //  com.mitra.middleware.testsupport.wso2.CarbonVersion.FOURPOINTFOUR).build()
+
+        // Properties props = new Properties()
+        // props.load(new FileInputStream("conf/vault/" + getProjectProperty("deploy-environment","local") + ".properties"))
+
+        // props.each { prop ->
+           // secureVault.setProperty(esbServer, prop.key, prop.value)
+        // }
+    }
+}

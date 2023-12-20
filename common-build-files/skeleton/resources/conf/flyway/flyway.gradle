@@ -1,0 +1,33 @@
+apply plugin: 'org.flywaydb.flyway'
+
+def getProjectProperty(property, defaultPropertyValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
+flyway {
+    schemas           = [ '@schema@' ]
+    locations         = [ "filesystem:database" ]
+    placeholders      = [ 'schemaName':'@schema@' ]
+}
+
+task flywayConfigure() {
+    doLast {
+        def environment = getProjectProperty("deploy-environment", "local")
+        def flywayGradle = new File("$projectDir/conf/flyway/flyway.gradle." + environment)
+
+        if (flywayGradle.exists()) {
+            apply from: flywayGradle
+
+            println "flyway endpoint: " + flyway.url
+            println "flyway environment is deploying to: " + environment
+        }
+    }
+}
+
+flywayMigrate.mustRunAfter startApiManager
+flywayMigrate.dependsOn flywayConfigure
+flywayClean.dependsOn flywayConfigure

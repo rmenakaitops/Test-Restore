@@ -1,0 +1,131 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+def envs = ["aat", "local", "perf", "ppd", "prod", "sit", "uat"]
+
+task createLoopbackEndpointFiles() {
+    for (String env : envs) {
+        def datasourceDestination = "$projectDir/../" + project.ext.projectName + "-greg/" + env
+        def fileLocation = new File(datasourceDestination)
+
+        def url = "esb:8243"
+
+        if (env == "local")
+            url = "localhost:8244"
+
+        if(!fileLocation.exists() ) {
+          fileLocation.mkdirs()
+        }
+        copy {
+            from ("$projectDir/reliable-delivery/resources/publish-loopback-endpoint.xml") {
+                include '**/*'
+                filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, routeName: project.ext.routeName, topicName: project.ext.topicName, url: url])
+            }
+            into datasourceDestination
+        }
+    }
+    doLast {
+        for (String env :  envs) {
+            def location = "$projectDir/../" + project.ext.projectName + "-greg/" + env
+            file(location + "/publish-loopback-endpoint.xml").renameTo(file(location + "/" + project.ext.projectName + "-v1-" +  project.ext.routeName + "-publish-loopback-endpoint.xml"))
+        }
+    }
+}
+
+task createLoopbackEndpointArtifacts() {
+
+    def fileLocation = new File("$projectDir/../" + project.ext.projectName + "-greg")
+    def file = new File("$projectDir/../" + project.ext.projectName + "-greg/artifact.xml")
+    def xmlFile = "$projectDir/../" + project.ext.projectName + "-greg/artifact.xml"
+    def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/artifact-endpoint.xml")
+
+    def pomFile = "$projectDir/../" + project.ext.projectName + "-greg/pom.xml"
+    def pom = new XmlParser().parse(pomFile)
+    def groupId = pom.groupId.text()
+
+    if( !file.exists() ) {
+      fileLocation.mkdirs()
+
+      new File(fileLocation, "artifact.xml").withWriterAppend { w ->
+        w << '<artifacts></artifacts>'
+      }
+    }
+
+    for (String env : envs) {
+
+        def xml = new XmlParser().parse(xmlFile)
+
+        def fileName = project.ext.projectName + "-v1-" + project.ext.routeName + "-publish-loopback-endpoint"
+        xmlTemplate.@name = fileName  + "-" + env
+        xmlTemplate.@groupId = groupId + ".resource"
+        xmlTemplate.item.file[0].value = env + "/" + fileName + ".xml"
+        xmlTemplate.item.path[0].value = "/_system/governance/endpoints"
+        xmlTemplate.item.mediaType[0].value = "application/vnd.wso2.esb.endpoint"
+
+        xml.children().add(0, xmlTemplate)
+
+        def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+        nodePrinter.preserveWhitespace = true
+        nodePrinter.print(xml)
+    }
+}
+
+task createLoopbackEndpointPoms() {
+
+    for (String env : envs) {
+        def datasourceDestination = "$projectDir/../" + project.ext.projectName + "-config-" + env
+        def fileLocation = new File(datasourceDestination)
+
+        if( !fileLocation.exists() ) {
+          fileLocation.mkdirs()
+
+          copy {
+              from ("$projectDir/reliable-delivery/resources/pom.xml") {
+                  include '**/*'
+                  filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, routeName: project.ext.routeName, topicName: project.ext.topicName, environment: env])
+              }
+              into datasourceDestination
+          }
+
+          copy {
+              from ("$projectDir/reliable-delivery/resources/.project") {
+                  include '**/*'
+                  filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, routeName: project.ext.routeName, topicName: project.ext.topicName, environment: env])
+              }
+              into datasourceDestination
+          }
+
+          copy {
+              from ("$projectDir/reliable-delivery/resources/build.gradle") {
+                  include '**/*'
+                  filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, routeName: project.ext.routeName, topicName: project.ext.topicName, environment: env])
+              }
+              into datasourceDestination
+          }
+        }
+
+        def xmlFile = datasourceDestination + "/pom.xml"
+        def xml = new XmlParser().parse(xmlFile)
+
+        def pomFile = "$projectDir/../" + project.ext.projectName + "-greg/pom.xml"
+        def pom = new XmlParser().parse(pomFile)
+        def groupId = pom.groupId.text()
+
+        def fileName = project.ext.projectName + "-v1-" + project.ext.routeName + "-publish-loopback-endpoint-" + env
+
+        def newNode = new Node(null, groupId + '.resource_._' + fileName, 'capp/EnterpriseServiceBus')
+        //println groovy.xml.XmlUtil.serialize(xmlTemplate)
+        xml.properties[0].children().add(0, newNode)
+
+        def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/pom-dependency.xml")
+        xmlTemplate.groupId[0].value = groupId + ".resource"
+        xmlTemplate.artifactId[0].value = fileName
+        xmlTemplate.type[0].value = "zip"
+
+        xml.dependencies[0].children().add(0, xmlTemplate)
+
+        def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+        nodePrinter.preserveWhitespace = true
+        nodePrinter.print(xml)
+    }
+}

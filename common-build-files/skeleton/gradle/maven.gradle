@@ -1,0 +1,106 @@
+task copySettingsXml(type: Copy) {
+    from ("$projectDir/skeleton/resources/maven") {
+        include '**/settings.xml'
+    }
+    into '$projectDir/../..'
+}
+
+task enrichPoms() {
+
+    outputs.upToDateWhen { false }
+
+    doFirst {
+
+        enrichPom(project.ext.projectName, project.ext.components)
+
+        project.ext.environments.each { e ->
+            enrichPom("$project.ext.projectName-config-$e", [ 'esb' ])
+        }
+    }
+}
+
+def enrichPom(subProjectName, components) {
+
+    if (!(new File("$projectDir/../$subProjectName").exists())) {
+        println "Skipping pom.xml for $subProjectName as project does not yet exist..."
+        return
+    }
+
+    println "Enrich pom.xml for $subProjectName..."
+
+    def xmlFile = "$projectDir/../$subProjectName/pom.xml"
+    def xml = new XmlParser().parse(xmlFile)
+
+    deletePlugins(xml)
+    deleteRepositories(xml)
+    deletePluginRepositories(xml)
+
+    def xmlTemplate = new XmlParser().parse("$projectDir/skeleton/resources/sub.pom.xml")
+    def deployPlugin = xmlTemplate.build.plugins.plugin[1]
+    def carbonServer = deployPlugin.configuration.carbonServers[0].CarbonServer.clone()
+
+    deployPlugin.configuration.carbonServers[0].CarbonServer[0].parent().remove(deployPlugin.configuration.carbonServers[0].CarbonServer[0])
+
+    components.each { c ->
+        def node = carbonServer.clone()
+        node.serverUrl[0].value = "\${server.${c}.url}"
+        node.userName[0].value = "\${server.${c}.username}"
+        node.password[0].value = "\${server.${c}.password}"
+        deployPlugin.configuration.carbonServers[0].append(node)
+    }
+
+    xml.build.plugins[0].append(xmlTemplate.build.plugins.plugin[0].clone())
+    xml.build.plugins[0].append(xmlTemplate.build.plugins.plugin[1].clone())
+
+    xml.repositories[0].append(xmlTemplate.repositories.repository[0].clone())
+    xml.repositories[0].append(xmlTemplate.repositories.repository[1].clone())
+
+    xml.pluginRepositories[0].append(xmlTemplate.pluginRepositories.pluginRepository[0].clone())
+    xml.pluginRepositories[0].append(xmlTemplate.pluginRepositories.pluginRepository[1].clone())
+
+    def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+    nodePrinter.preserveWhitespace = true
+    nodePrinter.print(xml)
+}
+
+def deletePluginRepositories(xml) {
+    deletePluginRepository(xml.pluginRepositories,'jcenter')
+    deletePluginRepository(xml.pluginRepositories,'tp-artifactory')
+}
+
+def deletePluginRepository(pluginRepositories, name) {
+    def plugin = pluginRepositories.pluginRepository.find { it.id.text() == name }
+    if (plugin != null) {
+        def parent = plugin.parent()
+        parent.remove(plugin)
+        println "Removing repository $name..."
+    }
+}
+
+def deleteRepositories(xml) {
+    deleteRepository(xml.repositories,'maven')
+    deleteRepository(xml.repositories,'tp-artifactory')
+}
+
+def deleteRepository(repositories, name) {
+    def plugin = repositories.repository.find { it.id.text() == name }
+    if (plugin != null) {
+        def parent = plugin.parent()
+        parent.remove(plugin)
+        println "Removing repository $name..."
+    }
+}
+
+def deletePlugins(xml) {
+    deletePlugin(xml.build.plugins,'maven-car-deploy-plugin')
+    deletePlugin(xml.build.plugins,'artifactory-maven-plugin')
+}
+
+def deletePlugin(plugins, name) {
+    def plugin = plugins.plugin.find { it.artifactId.text() == name }
+    if (plugin != null) {
+        def parent = plugin.parent()
+        parent.remove(plugin)
+        println "Removing plugin $name..."
+    }
+}

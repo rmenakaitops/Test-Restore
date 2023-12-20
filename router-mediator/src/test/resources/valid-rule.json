@@ -1,0 +1,42 @@
+[
+  {
+    "active": true,
+    "xpathRule": "//breakfast_menu/food/price/text()",
+    "conditions": [
+      {
+        "condition": "5",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      },
+      {
+        "condition": "100",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      }
+    ]
+  },
+  {
+    "active": false,
+    "xpathRule": "//breakfast_menu/food/price/text()",
+    "conditions": [
+      {
+        "condition": "650",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      },
+      {
+        "condition": "10",
+        "sequences": [
+          "test-sequence1",
+          "test-sequence2"
+        ]
+      }
+    ]
+  }
+]

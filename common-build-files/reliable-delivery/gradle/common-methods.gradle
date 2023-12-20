@@ -1,0 +1,95 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+import groovy.xml.*
+
+def addPluginToPom(resource, pomFile) {
+  def pom = new XmlParser().parse(pomFile)
+  if (!pom.properties."CApp.type".text().contains("synapse/" + resource + "=xml")) {
+    pom.properties."CApp.type"[0].value = pom.properties."CApp.type".text() + ",synapse/" + resource + "=xml"
+
+    def pomPluginTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/pom-plugin.xml")
+    pomPluginTemplate.artifactId[0].value = "wso2-esb-" + resource.replace("-", "") +"-plugin"
+    pomPluginTemplate.executions.execution.id[0].value = resource.replace("-", "")
+    pom.build[0].plugins[0].children().add(0, pomPluginTemplate)
+
+    def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(pomFile)))
+    nodePrinter.preserveWhitespace = true
+    nodePrinter.print(pom)
+  }
+}
+
+def addFileToArtifact(fileNameEnd, fileType) {
+  def fileLocation = new File("$projectDir/../" + project.ext.projectName + "-esb")
+  if(!fileLocation.exists()) {
+    fileLocation.mkdirs()
+
+    new File(fileLocation, "artifact.xml").withWriterAppend { w ->
+      w << '<artifacts></artifacts>'
+    }
+  }
+
+  def xmlFile = "$projectDir/../" + project.ext.projectName + "-esb/artifact.xml"
+  def xml = new XmlParser().parse(xmlFile)
+  def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/artifact.xml")
+
+  def pomFile = "$projectDir/../" + project.ext.projectName + "-esb/pom.xml"
+  def pom = new XmlParser().parse(pomFile)
+  def groupId = pom.groupId.text()
+
+  def fileName = project.ext.projectName + "-v1-" + project.ext.routeName + "-" + fileNameEnd
+  xmlTemplate.@name = fileName
+  xmlTemplate.@groupId = groupId + "." + fileType
+  xmlTemplate.@type = "synapse/" + fileType
+  if (fileType == "message-processors") { fileType = "message-processor" }
+  xmlTemplate.file[0].value = "src/main/synapse-config/" + fileType + "s/" + fileName + ".xml"
+
+  xml.children().add(0, xmlTemplate)
+
+  def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+  nodePrinter.preserveWhitespace = true
+  nodePrinter.print(xml)
+}
+
+def addDependancyToPom(fileNameEnd, fileType) {
+  def xmlFile = "$projectDir/../" + project.ext.projectName + "/pom.xml"
+  def xml = new XmlParser().parse(xmlFile)
+
+  def pomFile = "$projectDir/../" + project.ext.projectName + "-esb/pom.xml"
+  def pom = new XmlParser().parse(pomFile)
+  def groupId = pom.groupId.text()
+
+  def fileName = project.ext.projectName + "-v1-" + project.ext.routeName + "-" + fileNameEnd
+
+  def newNode = new Node(null, groupId + '.' + fileType + '_._' + fileName, 'capp/EnterpriseServiceBus')
+  xml.properties[0].children().add(0, newNode)
+
+  def xmlTemplate = new XmlParser().parse("$projectDir/reliable-delivery/resources/pom-dependency.xml")
+  xmlTemplate.groupId[0].value = groupId + "." + fileType
+  xmlTemplate.artifactId[0].value = fileName
+
+  xml.dependencies[0].children().add(0, xmlTemplate)
+
+  def nodePrinter = new XmlNodePrinter(new PrintWriter(new FileWriter(xmlFile)))
+  nodePrinter.preserveWhitespace = true
+  nodePrinter.print(xml)
+
+  addPluginToPom(fileType, pomFile)
+}
+
+def copyFile(resourceName, fileType) {
+  def datasourceDestination = "$projectDir/../" + project.ext.projectName + "-esb/src/main/synapse-config/" + fileType + "s"
+  copy {
+    from ("$projectDir/reliable-delivery/resources/" + resourceName + ".xml") {
+        include '**/*'
+        filter(ReplaceTokens, tokens: [projectName: project.ext.projectName, routeName: project.ext.routeName, topicName: project.ext.topicName, capability: project.ext.capability])
+    }
+    into datasourceDestination
+  }
+  file(datasourceDestination + "/" + resourceName + ".xml").renameTo(file(datasourceDestination + "/" + project.ext.projectName + "-v1-" +  project.ext.routeName + "-" + resourceName + ".xml"))
+}
+
+ext {
+  addPluginToPom = this.&addPluginToPom
+  addFileToArtifact = this.&addFileToArtifact
+  addDependancyToPom = this.&addDependancyToPom
+  copyFile = this.&copyFile
+}

@@ -1,0 +1,6 @@
+databaseContainerIpAddress.execute()
+
+flyway.user     = 'root'
+flyway.password = 'root'
+flyway.url      = "jdbc:mysql://" + dockerMysqlContainerIP + ":3306"
+

@@ -1,0 +1,14 @@
+[
+   {
+      "condition":"true",
+      "sequences":[
+         "router-v1-sample-ep-channel1-sequence"
+      ]
+   },
+   {
+      "condition": "false",
+      "sequences": [
+         "router-v1-sample-ep-channel2-sequence"	 
+      ]
+    }
+]

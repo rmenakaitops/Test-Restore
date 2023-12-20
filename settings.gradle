@@ -1,0 +1,12 @@
+rootProject.name = 'router'
+include "router-mediator",
+    "router", "router:deploy",
+    "router-esb",
+    "router-greg",
+    "router-config-local", "router-config-local:deploy",
+    "router-config-aat", "router-config-aat:deploy",
+    "router-config-sit", "router-config-sit:deploy",
+    "router-config-perf", "router-config-perf:deploy"
+    
+gradle.ext.cars = [ "router", "router-config-local","router-config-aat","router-config-sit","router-config-perf"]
+gradle.ext.deployables = [ "router", "router-config-#ENVIRONMENT#"]

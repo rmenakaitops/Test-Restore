@@ -1,0 +1,4 @@
+project.ext {
+  routerApiURL = "https://esb:8243/router/v1/usecase"
+  adminServiceApiURL = "https://esb:9443/services"  
+}

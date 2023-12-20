@@ -1,0 +1,9 @@
+<data name="@projectName@-v1-ds" serviceNamespace="" serviceGroup="">
+    <description/>
+    <config id="@projectName@">
+        <property name="org.wso2.ws.dataservice.user">null</property>
+        <property name="org.wso2.ws.dataservice.password">null</property>
+        <property name="org.wso2.ws.dataservice.protocol">null</property>
+        <property name="org.wso2.ws.dataservice.driver">null</property>
+    </config>
+</data>
